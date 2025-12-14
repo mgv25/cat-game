@@ -1,5 +1,5 @@
 :root {
-  --hud-height: 64px;
+  --hud-height: 134px;
   --bg: #0b1020;
   --hud-bg: rgba(255, 255, 255, 0.08);
   --card-bg: rgba(255, 255, 255, 0.12);
@@ -29,30 +29,58 @@ body {
 
 #hud {
   height: var(--hud-height);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 10px 14px;
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  grid-template-rows: 1fr 1fr;
+  gap: 8px;
+  padding: 8px 10px;
   background: var(--hud-bg);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
   border-bottom: 1px solid rgba(255, 255, 255, 0.14);
 }
 
-.hudItem {
-  font-size: 16px;
-  letter-spacing: 0.2px;
-  white-space: nowrap;
+.hudCard {
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-width: 0;
 }
 
-.hudLabel {
-  color: var(--muted);
-}
-
-.hudSub {
+.hudCardLabel {
   color: rgba(255, 255, 255, 0.72);
-  font-size: 13px;
-  margin-left: 8px;
+  font-size: 12px;
+  letter-spacing: 0.3px;
+}
+
+.hudCardValue {
+  font-size: 20px;
+  font-weight: 900;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.2px;
+}
+
+.hudCardTime {
+  text-align: center;
+}
+
+.hudCardTime .hudCardValue {
+  font-size: 24px;
+}
+
+.hudCardSmall .hudCardValue {
+  font-size: 18px;
+}
+
+.hudSpacer {
+  border-radius: 12px;
+  border: 1px dashed rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.03);
 }
 
 #gameField {
@@ -255,11 +283,21 @@ body {
 
 @media (max-width: 360px) {
   :root {
-    --hud-height: 58px;
+    --hud-height: 126px;
   }
-
-  .hudItem {
-    font-size: 14px;
+  #hud {
+    gap: 6px;
+    padding: 7px 8px;
+  }
+  .hudCard {
+    padding: 7px 8px;
+    border-radius: 10px;
+  }
+  .hudCardValue {
+    font-size: 18px;
+  }
+  .hudCardTime .hudCardValue {
+    font-size: 22px;
   }
 
   #mouse {

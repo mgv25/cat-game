@@ -8,14 +8,29 @@
   </head>
   <body>
     <header id="hud" aria-label="Панель игры">
-      <div class="hudItem">
-        <span class="hudLabel">Счёт:</span> <span id="score">0</span>
-        <span class="hudSub">(серия: <span id="streak">0</span>)</span>
+      <!-- Row 1: Score | Time | Best -->
+      <div class="hudCard">
+        <div class="hudCardLabel">Счёт</div>
+        <div class="hudCardValue" id="score">0</div>
       </div>
-      <div class="hudItem"><span class="hudLabel">Время:</span> <span id="timeLeft">60</span></div>
-      <div class="hudItem">
-        <span class="hudLabel">Рекорд:</span> <span id="bestScore">0</span>
-        <span class="hudSub">(серия: <span id="bestStreak">0</span>)</span>
+      <div class="hudCard hudCardTime">
+        <div class="hudCardLabel">Время</div>
+        <div class="hudCardValue" id="timeLeft">60</div>
+      </div>
+      <div class="hudCard">
+        <div class="hudCardLabel">Рекорд</div>
+        <div class="hudCardValue" id="bestScore">0</div>
+      </div>
+
+      <!-- Row 2: Streak | Empty | Best Streak -->
+      <div class="hudCard hudCardSmall">
+        <div class="hudCardLabel">Серия</div>
+        <div class="hudCardValue" id="streak">0</div>
+      </div>
+      <div class="hudSpacer" aria-hidden="true"></div>
+      <div class="hudCard hudCardSmall">
+        <div class="hudCardLabel">Рекорд серии</div>
+        <div class="hudCardValue" id="bestStreak">0</div>
       </div>
     </header>
 

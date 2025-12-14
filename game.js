@@ -4,7 +4,7 @@
   const BEST_STREAK_KEY = 'catMouseBestStreak';
   const HITBOX_SIZE_PX = 80;
   const HALF_HITBOX = HITBOX_SIZE_PX / 2;
-  const MOUSE_SHOW_MS = 1000;
+  const MOUSE_SHOW_MS = 1500;
 
   const $score = document.getElementById('score');
   const $timeLeft = document.getElementById('timeLeft');
