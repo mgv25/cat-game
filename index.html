@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Кот ловит мышь</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <header id="hud" aria-label="Панель игры">
+      <div class="hudItem"><span class="hudLabel">Счёт:</span> <span id="score">0</span></div>
+      <div class="hudItem"><span class="hudLabel">Время:</span> <span id="timeLeft">60</span></div>
+      <div class="hudItem"><span class="hudLabel">Рекорд:</span> <span id="bestScore">0</span></div>
+    </header>
+
+    <main id="gameField" aria-label="Игровое поле">
+      <div id="mouse" aria-hidden="true">🐭</div>
+      <div id="cat" aria-hidden="true">😺</div>
+
+      <section id="startOverlay" class="overlay" aria-label="Старт">
+        <div class="overlayCard">
+          <h1 class="title">Кот ловит мышь</h1>
+          <p class="subtitle">Лови как можно больше мышей за 60 секунд.</p>
+          <button id="startBtn" class="btn" type="button">Старт</button>
+        </div>
+      </section>
+
+      <section id="endOverlay" class="overlay hidden" aria-label="Конец игры">
+        <div class="overlayCard">
+          <h2 class="title">Время вышло</h2>
+          <p class="subtitle">Счёт: <strong id="finalScore">0</strong></p>
+          <p class="subtitle">Рекорд: <strong id="finalBest">0</strong></p>
+          <button id="restartBtn" class="btn" type="button">Сыграть ещё раз</button>
+        </div>
+      </section>
+
+      <section id="rotateOverlay" class="overlay hidden" aria-label="Поверните устройство">
+        <div class="overlayCard">
+          <h2 class="title">Поверните устройство</h2>
+          <p class="subtitle">На телефоне игра работает только в портретной ориентации.</p>
+        </div>
+      </section>
+    </main>
+
+    <script src="./game.js"></script>
+  </body>
+</html>

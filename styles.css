@@ -1,0 +1,153 @@
+:root {
+  --hud-height: 64px;
+  --bg: #0b1020;
+  --hud-bg: rgba(255, 255, 255, 0.08);
+  --card-bg: rgba(255, 255, 255, 0.12);
+  --text: rgba(255, 255, 255, 0.92);
+  --muted: rgba(255, 255, 255, 0.75);
+  --btn-bg: rgba(255, 255, 255, 0.18);
+  --btn-bg-hover: rgba(255, 255, 255, 0.24);
+  --btn-border: rgba(255, 255, 255, 0.22);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+  background: radial-gradient(1200px 800px at 50% 0%, #18234a 0%, var(--bg) 60%, #050814 100%);
+  color: var(--text);
+  overflow: hidden;
+}
+
+#hud {
+  height: var(--hud-height);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  background: var(--hud-bg);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.14);
+}
+
+.hudItem {
+  font-size: 16px;
+  letter-spacing: 0.2px;
+  white-space: nowrap;
+}
+
+.hudLabel {
+  color: var(--muted);
+}
+
+#gameField {
+  height: calc(100% - var(--hud-height));
+  position: relative;
+  overflow: hidden;
+  touch-action: none;
+  user-select: none;
+}
+
+#mouse,
+#cat {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  line-height: 1;
+  text-shadow: 0 6px 24px rgba(0, 0, 0, 0.35);
+  will-change: transform, left, top, opacity;
+}
+
+#mouse {
+  font-size: 64px;
+  display: none;
+}
+
+#cat {
+  font-size: 56px;
+  display: none;
+}
+
+.overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(0, 0, 0, 0.55);
+}
+
+.hidden {
+  display: none !important;
+}
+
+.overlayCard {
+  width: min(520px, 100%);
+  background: var(--card-bg);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 16px;
+  padding: 18px 16px;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.title {
+  margin: 0 0 8px 0;
+  font-size: 24px;
+  font-weight: 800;
+}
+
+.subtitle {
+  margin: 8px 0;
+  font-size: 16px;
+  color: var(--muted);
+}
+
+.btn {
+  appearance: none;
+  border: 1px solid var(--btn-border);
+  background: var(--btn-bg);
+  color: var(--text);
+  border-radius: 12px;
+  padding: 12px 14px;
+  font-weight: 700;
+  font-size: 16px;
+  width: 100%;
+}
+
+.btn:hover {
+  background: var(--btn-bg-hover);
+}
+
+.btn:active {
+  transform: translateY(1px);
+}
+
+@media (max-width: 360px) {
+  :root {
+    --hud-height: 58px;
+  }
+
+  .hudItem {
+    font-size: 14px;
+  }
+
+  #mouse {
+    font-size: 56px;
+  }
+
+  #cat {
+    font-size: 50px;
+  }
+}
