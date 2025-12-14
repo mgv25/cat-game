@@ -3,6 +3,7 @@
   const BEST_SCORE_KEY = 'catMouseBestScore';
   const HITBOX_SIZE_PX = 80;
   const HALF_HITBOX = HITBOX_SIZE_PX / 2;
+  const MOUSE_SHOW_MS = 1000;
 
   const $score = document.getElementById('score');
   const $timeLeft = document.getElementById('timeLeft');
@@ -226,11 +227,10 @@
     $mouse.style.top = `${pos.yPx}px`;
     setMouseVisible(true);
 
-    const showMs = randomIntInclusive(1000, 2000);
     clearTimer(mouseHideTimerId);
     mouseHideTimerId = window.setTimeout(() => {
       hideMouseAndReschedule();
-    }, showMs);
+    }, MOUSE_SHOW_MS);
   }
 
   function hideMouseAndReschedule() {
