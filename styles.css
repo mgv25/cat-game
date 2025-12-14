@@ -49,6 +49,12 @@ body {
   color: var(--muted);
 }
 
+.hudSub {
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 13px;
+  margin-left: 8px;
+}
+
 #gameField {
   height: calc(100% - var(--hud-height));
   position: relative;
@@ -71,6 +77,32 @@ body {
 #mouse {
   font-size: 64px;
   display: none;
+}
+
+/* Mouse “taunt” animation on miss */
+#mouse.mouseTaunt {
+  animation: mouseTaunt 360ms ease-out both;
+}
+
+@keyframes mouseTaunt {
+  0% {
+    transform: translate(-50%, -50%) translateY(0);
+  }
+  15% {
+    transform: translate(-50%, -50%) translateY(-12px);
+  }
+  30% {
+    transform: translate(-50%, -50%) translateY(0);
+  }
+  55% {
+    transform: translate(-50%, -50%) translateY(-9px);
+  }
+  70% {
+    transform: translate(-50%, -50%) translateY(0);
+  }
+  100% {
+    transform: translate(-50%, -50%) translateY(0);
+  }
 }
 
 #cat {
@@ -149,6 +181,10 @@ body {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  #mouse.mouseTaunt {
+    animation: none;
+  }
+
   #cat.catCatch {
     animation: none;
     opacity: 1;

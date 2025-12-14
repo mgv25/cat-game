@@ -8,9 +8,15 @@
   </head>
   <body>
     <header id="hud" aria-label="Панель игры">
-      <div class="hudItem"><span class="hudLabel">Счёт:</span> <span id="score">0</span></div>
+      <div class="hudItem">
+        <span class="hudLabel">Счёт:</span> <span id="score">0</span>
+        <span class="hudSub">(серия: <span id="streak">0</span>)</span>
+      </div>
       <div class="hudItem"><span class="hudLabel">Время:</span> <span id="timeLeft">60</span></div>
-      <div class="hudItem"><span class="hudLabel">Рекорд:</span> <span id="bestScore">0</span></div>
+      <div class="hudItem">
+        <span class="hudLabel">Рекорд:</span> <span id="bestScore">0</span>
+        <span class="hudSub">(серия: <span id="bestStreak">0</span>)</span>
+      </div>
     </header>
 
     <main id="gameField" aria-label="Игровое поле">
@@ -29,6 +35,7 @@
         <div class="overlayCard">
           <h2 class="title">Время вышло</h2>
           <p class="subtitle">Счёт: <strong id="finalScore">0</strong></p>
+          <p class="subtitle">Лучшая серия: <strong id="finalBestStreak">0</strong></p>
           <p class="subtitle">Рекорд: <strong id="finalBest">0</strong></p>
           <button id="restartBtn" class="btn" type="button">Сыграть ещё раз</button>
         </div>

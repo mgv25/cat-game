@@ -1,6 +1,7 @@
 (() => {
   const GAME_DURATION_MS = 60_000;
   const BEST_SCORE_KEY = 'catMouseBestScore';
+  const BEST_STREAK_KEY = 'catMouseBestStreak';
   const HITBOX_SIZE_PX = 80;
   const HALF_HITBOX = HITBOX_SIZE_PX / 2;
   const MOUSE_SHOW_MS = 1000;
@@ -8,6 +9,8 @@
   const $score = document.getElementById('score');
   const $timeLeft = document.getElementById('timeLeft');
   const $bestScore = document.getElementById('bestScore');
+  const $streak = document.getElementById('streak');
+  const $bestStreak = document.getElementById('bestStreak');
 
   const $gameField = document.getElementById('gameField');
   const $mouse = document.getElementById('mouse');
@@ -22,6 +25,7 @@
 
   const $finalScore = document.getElementById('finalScore');
   const $finalBest = document.getElementById('finalBest');
+  const $finalBestStreak = document.getElementById('finalBestStreak');
 
   /** @type {'idle'|'running'|'paused'|'ended'} */
   let status = 'idle';
@@ -29,6 +33,9 @@
   let score = 0;
   let bestScore = 0;
   let bestScoreAtRoundStart = 0;
+  let streak = 0;
+  let bestStreak = 0;
+  let bestStreakAtRoundStart = 0;
 
   let endAtMs = 0;
   let pausedRemainingMs = 0;
@@ -142,12 +149,34 @@
     }
   }
 
+  function loadBestStreak() {
+    try {
+      const raw = window.localStorage.getItem(BEST_STREAK_KEY);
+      const n = Number(raw);
+      bestStreak = Number.isFinite(n) && n > 0 ? Math.floor(n) : 0;
+    } catch {
+      bestStreak = 0;
+    }
+  }
+
   function saveBestScore() {
     try {
       window.localStorage.setItem(BEST_SCORE_KEY, String(bestScore));
     } catch {
       // ignore
     }
+  }
+
+  function saveBestStreak() {
+    try {
+      window.localStorage.setItem(BEST_STREAK_KEY, String(bestStreak));
+    } catch {
+      // ignore
+    }
+  }
+
+  function resetStreak() {
+    streak = 0;
   }
 
   function setOverlay($el, isVisible) {
@@ -157,7 +186,23 @@
   function setMouseVisible(isVisible) {
     mouseVisible = isVisible;
     $mouse.style.display = isVisible ? 'block' : 'none';
+    if (!isVisible) $mouse.classList.remove('mouseTaunt');
     if (!isVisible) mousePos = null;
+  }
+
+  function playMouseTaunt() {
+    if (!mouseVisible) return;
+    $mouse.classList.remove('mouseTaunt');
+    // Перезапуск CSS-анимации.
+    void $mouse.offsetWidth;
+    $mouse.classList.add('mouseTaunt');
+    $mouse.addEventListener(
+      'animationend',
+      () => {
+        $mouse.classList.remove('mouseTaunt');
+      },
+      { once: true }
+    );
   }
 
   function setCatVisibleAt(xPx, yPx) {
@@ -232,6 +277,8 @@
   function updateHud() {
     $score.textContent = String(score);
     $bestScore.textContent = String(bestScore);
+    if ($streak) $streak.textContent = String(streak);
+    if ($bestStreak) $bestStreak.textContent = String(bestStreak);
 
     let secondsLeft = 60;
     if (status === 'running') {
@@ -361,6 +408,8 @@
       return;
     }
 
+    // Мышь исчезла по таймауту — это ошибка для серии.
+    if (mouseVisible) resetStreak();
     setMouseVisible(false);
     scheduleNextMouse();
   }
@@ -375,6 +424,8 @@
 
     score = 0;
     bestScoreAtRoundStart = bestScore;
+    streak = 0;
+    bestStreakAtRoundStart = bestStreak;
     status = 'running';
     endAtMs = Date.now() + GAME_DURATION_MS;
     pausedRemainingMs = 0;
@@ -400,9 +451,11 @@
 
     // Рекорд может обновляться “на лету” для HUD — гарантируем сохранение по окончании раунда.
     if (bestScore > bestScoreAtRoundStart) saveBestScore();
+    if (bestStreak > bestStreakAtRoundStart) saveBestStreak();
 
     $finalScore.textContent = String(score);
     $finalBest.textContent = String(bestScore);
+    if ($finalBestStreak) $finalBestStreak.textContent = String(bestStreak);
 
     updateHud();
     setOverlay($endOverlay, true);
@@ -416,6 +469,7 @@
 
     status = 'idle';
     score = 0;
+    streak = 0;
     pausedRemainingMs = 0;
 
     setOverlay($endOverlay, false);
@@ -445,12 +499,16 @@
     const didHit = pointInMouseHitbox(xPx, yPx);
     if (!didHit && mouseVisible) {
       playMissSound();
+      playMouseTaunt();
+      resetStreak();
     }
 
     if (didHit) {
       const hitPos = mousePos ? { ...mousePos } : { xPx, yPx };
       playHitSound();
       score += 1;
+      streak += 1;
+      if (streak > bestStreak) bestStreak = streak;
       if (score > bestScore) {
         // Можно обновлять рекорд сразу, но сохраняем только в конце раунда.
         bestScore = score;
@@ -503,6 +561,7 @@
 
   function init() {
     loadBestScore();
+    loadBestStreak();
     updateHud();
     bindEvents();
     updateOrientationOverlay();
