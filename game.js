@@ -43,6 +43,25 @@
   let nextSpawnTimerId = null;
   /** @type {number | null} */
   let tickTimerId = null;
+  let catCatchToken = 0;
+
+  function dbgLog(hypothesisId, location, message, data) {
+    // #region agent log
+    fetch('http://127.0.0.1:7243/ingest/2cb024a1-4301-423d-b81b-0ff8e85c4cdf', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        sessionId: 'debug-session',
+        runId: 'pre-fix',
+        hypothesisId,
+        location,
+        message,
+        data,
+        timestamp: Date.now(),
+      }),
+    }).catch(() => {});
+    // #endregion agent log
+  }
 
   function clamp(n, min, max) {
     return Math.max(min, Math.min(max, n));
@@ -98,13 +117,119 @@
   }
 
   function setCatVisibleAt(xPx, yPx) {
+    // Любой тап должен сразу показать “обычного” кота и отменить прошлую анимацию поимки.
+    catCatchToken += 1;
+    $cat.classList.remove('catCatch');
     $cat.style.left = `${xPx}px`;
     $cat.style.top = `${yPx}px`;
     $cat.style.display = 'block';
+    // #region agent log
+    dbgLog('H2', 'game.js:setCatVisibleAt', 'cat_set_visible', {
+      status,
+      catCatchToken,
+      xPx,
+      yPx,
+      catDisplay: $cat.style.display,
+      catClasses: $cat.className,
+      catOpacityStyle: $cat.style.opacity || null,
+    });
+    // #endregion agent log
   }
 
   function hideCat() {
+    catCatchToken += 1;
+    $cat.classList.remove('catCatch');
     $cat.style.display = 'none';
+  }
+
+  function playCatCatchAt(xPx, yPx) {
+    catCatchToken += 1;
+    const token = catCatchToken;
+
+    // Кот должен “поймать” мышь в её точке.
+    $cat.classList.remove('catCatch');
+    $cat.style.left = `${xPx}px`;
+    $cat.style.top = `${yPx}px`;
+    $cat.style.display = 'block';
+    // #region agent log
+    dbgLog('H1', 'game.js:playCatCatchAt', 'cat_catch_start', {
+      status,
+      token,
+      xPx,
+      yPx,
+      catDisplay: $cat.style.display,
+      catClasses: $cat.className,
+      catOpacityStyle: $cat.style.opacity || null,
+    });
+    // #endregion agent log
+
+    // Перезапуск CSS-анимации.
+    void $cat.offsetWidth;
+    $cat.classList.add('catCatch');
+
+    const cleanup = () => {
+      if (catCatchToken !== token) return;
+      $cat.classList.remove('catCatch');
+      $cat.style.display = 'none';
+      // #region agent log
+      dbgLog('H1', 'game.js:playCatCatchAt', 'cat_catch_cleanup_hide', {
+        status,
+        token,
+        catCatchToken,
+        catDisplay: $cat.style.display,
+        catClasses: $cat.className,
+      });
+      // #endregion agent log
+    };
+
+    const cleanupKeepVisible = () => {
+      if (catCatchToken !== token) return;
+      $cat.classList.remove('catCatch');
+      $cat.style.display = 'block';
+      // #region agent log
+      dbgLog('H1', 'game.js:playCatCatchAt', 'cat_catch_cleanup_keep_visible', {
+        status,
+        token,
+        catCatchToken,
+        catDisplay: $cat.style.display,
+        catClasses: $cat.className,
+        catOpacityStyle: $cat.style.opacity || null,
+      });
+      // #endregion agent log
+    };
+
+    $cat.addEventListener('animationend', cleanupKeepVisible, { once: true });
+    window.setTimeout(cleanupKeepVisible, 800);
+  }
+
+  function clearEffects() {
+    $gameField.querySelectorAll('.effect').forEach((el) => el.remove());
+  }
+
+  function spawnEffectPuff(xPx, yPx) {
+    const el = document.createElement('div');
+    el.className = 'effect effectPuff';
+    el.textContent = '💥';
+    el.style.left = `${xPx}px`;
+    el.style.top = `${yPx}px`;
+    $gameField.appendChild(el);
+
+    const cleanup = () => el.remove();
+    el.addEventListener('animationend', cleanup, { once: true });
+    window.setTimeout(cleanup, 800);
+  }
+
+  function spawnEffectScore(xPx, yPx, text) {
+    const el = document.createElement('div');
+    el.className = 'effect effectScore';
+    el.textContent = text;
+    el.style.left = `${xPx}px`;
+    el.style.top = `${yPx}px`;
+    $gameField.appendChild(el);
+
+    const cleanup = () => el.remove();
+    el.addEventListener('animationend', cleanup, { once: true });
+    window.setTimeout(cleanup, 1200);
   }
 
   function updateHud() {
@@ -248,6 +373,7 @@
     if (!isOrientationAllowed()) return;
 
     clearAllTimers();
+    clearEffects();
     hideCat();
 
     score = 0;
@@ -271,6 +397,7 @@
 
     clearAllTimers();
     setMouseVisible(false);
+    clearEffects();
 
     status = 'ended';
 
@@ -287,6 +414,7 @@
   function resetToIdle() {
     clearAllTimers();
     setMouseVisible(false);
+    clearEffects();
     hideCat();
 
     status = 'idle';
@@ -318,12 +446,27 @@
     setCatVisibleAt(xPx, yPx);
 
     if (pointInMouseHitbox(xPx, yPx)) {
+      const hitPos = mousePos ? { ...mousePos } : { xPx, yPx };
+      // #region agent log
+      dbgLog('H2', 'game.js:onPointerDown', 'hit_detected', {
+        status,
+        click: { xPx, yPx },
+        hitPos,
+        mouseVisible,
+        mousePos,
+      });
+      // #endregion agent log
       score += 1;
       if (score > bestScore) {
         // Можно обновлять рекорд сразу, но сохраняем только в конце раунда.
         bestScore = score;
       }
       updateHud();
+
+      // Эффект поимки: “пух” + “+1”
+      spawnEffectPuff(hitPos.xPx, hitPos.yPx);
+      spawnEffectScore(hitPos.xPx, hitPos.yPx - 36, '+1');
+      playCatCatchAt(hitPos.xPx, hitPos.yPx);
 
       // Мышь поймана: прячем немедленно и запускаем следующий цикл.
       clearTimer(mouseHideTimerId);

@@ -78,6 +78,89 @@ body {
   display: none;
 }
 
+/* Cat animation on successful catch */
+#cat.catCatch {
+  animation: catCatch 320ms ease-out forwards;
+}
+
+@keyframes catCatch {
+  0% {
+    transform: translate(-50%, -50%) scale(0.65);
+    opacity: 0;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 1;
+  }
+}
+
+/* Effects (mouse catch) */
+.effect {
+  position: absolute;
+  left: 0;
+  top: 0;
+  transform: translate(-50%, -50%);
+  line-height: 1;
+  pointer-events: none;
+  user-select: none;
+  text-shadow: 0 10px 26px rgba(0, 0, 0, 0.45);
+  will-change: transform, opacity;
+}
+
+.effectPuff {
+  font-size: 54px;
+  animation: puffPop 320ms ease-out forwards;
+}
+
+.effectScore {
+  font-size: 28px;
+  font-weight: 900;
+  letter-spacing: 0.4px;
+  color: rgba(255, 247, 190, 0.98);
+  animation: scoreFloat 520ms ease-out forwards;
+}
+
+@keyframes puffPop {
+  0% {
+    transform: translate(-50%, -50%) scale(0.5);
+    opacity: 0;
+  }
+  30% {
+    opacity: 1;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(1.35);
+    opacity: 0;
+  }
+}
+
+@keyframes scoreFloat {
+  0% {
+    transform: translate(-50%, -50%) translateY(0) scale(0.95);
+    opacity: 0;
+  }
+  25% {
+    opacity: 1;
+  }
+  100% {
+    transform: translate(-50%, -50%) translateY(-26px) scale(1.05);
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #cat.catCatch {
+    animation: none;
+    opacity: 1;
+  }
+
+  .effectPuff,
+  .effectScore {
+    animation: none;
+    opacity: 0;
+  }
+}
+
 .overlay {
   position: absolute;
   inset: 0;
