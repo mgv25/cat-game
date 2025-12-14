@@ -81,6 +81,111 @@ body {
   border-radius: 12px;
   border: 1px dashed rgba(255, 255, 255, 0.12);
   background: rgba(255, 255, 255, 0.03);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.hudSpacer.hudResultsActive {
+  border-style: solid;
+  background: rgba(255, 255, 255, 0.09);
+}
+
+.hudSpacer.hudResultsStop {
+  border-style: solid;
+  border-color: rgba(255, 110, 110, 0.28);
+  background: rgba(255, 110, 110, 0.10);
+}
+
+.resultsBtn {
+  appearance: none;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  background: rgba(255, 255, 255, 0.14);
+  color: var(--text);
+  border-radius: 10px;
+  padding: 10px 10px;
+  font-weight: 800;
+  font-size: 14px;
+  width: calc(100% - 16px);
+  max-width: 170px;
+}
+
+.resultsBtn.resultsStop {
+  border-color: rgba(255, 110, 110, 0.42);
+  background: rgba(255, 110, 110, 0.22);
+}
+
+.resultsBtn:disabled {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.resultsCard {
+  width: min(720px, 100%);
+}
+
+.resultsHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.resultsTitle {
+  margin: 0;
+}
+
+.btnSmall {
+  width: auto;
+  padding: 10px 12px;
+  font-size: 14px;
+}
+
+.resultsList {
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.18);
+  overflow-y: auto;
+  max-height: min(62vh, 520px);
+}
+
+.resultsRow {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: 10px;
+  padding: 10px 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.10);
+  align-items: center;
+}
+
+.resultsRow:last-child {
+  border-bottom: none;
+}
+
+.resultsMain {
+  min-width: 0;
+}
+
+.resultsLine1 {
+  font-weight: 900;
+  font-size: 15px;
+}
+
+.resultsLine2 {
+  margin-top: 2px;
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 12px;
+}
+
+.badge {
+  font-size: 12px;
+  font-weight: 800;
+  padding: 6px 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.10);
+  white-space: nowrap;
 }
 
 #gameField {
@@ -298,6 +403,11 @@ body {
   }
   .hudCardTime .hudCardValue {
     font-size: 22px;
+  }
+
+  .resultsBtn {
+    padding: 9px 10px;
+    font-size: 13px;
   }
 
   #mouse {

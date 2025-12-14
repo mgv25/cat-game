@@ -2,6 +2,8 @@
   const GAME_DURATION_MS = 60_000;
   const BEST_SCORE_KEY = 'catMouseBestScore';
   const BEST_STREAK_KEY = 'catMouseBestStreak';
+  const HISTORY_KEY = 'catMouseHistoryV1';
+  const HISTORY_LIMIT = 50;
   const HITBOX_SIZE_PX = 80;
   const HALF_HITBOX = HITBOX_SIZE_PX / 2;
   const MOUSE_SHOW_MS = 1500;
@@ -26,6 +28,11 @@
   const $finalScore = document.getElementById('finalScore');
   const $finalBest = document.getElementById('finalBest');
   const $finalBestStreak = document.getElementById('finalBestStreak');
+  const $resultsCell = document.getElementById('resultsCell');
+  const $resultsBtn = document.getElementById('resultsBtn');
+  const $resultsOverlay = document.getElementById('resultsOverlay');
+  const $resultsCloseBtn = document.getElementById('resultsCloseBtn');
+  const $resultsList = document.getElementById('resultsList');
 
   /** @type {'idle'|'running'|'paused'|'ended'} */
   let status = 'idle';
@@ -34,8 +41,11 @@
   let bestScore = 0;
   let bestScoreAtRoundStart = 0;
   let streak = 0;
+  let bestStreakThisRun = 0;
   let bestStreak = 0;
   let bestStreakAtRoundStart = 0;
+  /** @type {Array<{ts:number, score:number, bestStreak:number, isBestScore:boolean, isBestStreak:boolean}>} */
+  let history = [];
 
   let endAtMs = 0;
   let pausedRemainingMs = 0;
@@ -167,6 +177,100 @@
     }
   }
 
+  function loadHistory() {
+    try {
+      const raw = window.localStorage.getItem(HISTORY_KEY);
+      const arr = JSON.parse(raw || '[]');
+      history = Array.isArray(arr) ? arr.slice(0, HISTORY_LIMIT) : [];
+    } catch {
+      history = [];
+    }
+  }
+
+  function saveHistory() {
+    try {
+      window.localStorage.setItem(HISTORY_KEY, JSON.stringify(history.slice(0, HISTORY_LIMIT)));
+    } catch {
+      // ignore
+    }
+  }
+
+  function updateResultsCellAvailability() {
+    if (!$resultsBtn || !$resultsCell) return;
+
+    const showResults = status === 'idle' || status === 'ended';
+    const showStop = status === 'running' || status === 'paused';
+
+    $resultsCell.classList.toggle('hudResultsActive', showResults);
+    $resultsCell.classList.toggle('hudResultsStop', showStop);
+
+    $resultsBtn.disabled = !(showResults || showStop);
+    $resultsBtn.textContent = showStop ? 'Стоп' : 'Результаты';
+    $resultsBtn.classList.toggle('resultsStop', showStop);
+  }
+
+  function formatTs(ts) {
+    try {
+      const d = new Date(ts);
+      // Формат: "ДД месяц ГГГГ" (например: "13 декабря 2025")
+      return d
+        .toLocaleDateString('ru-RU', { day: '2-digit', month: 'long', year: 'numeric' })
+        .replace(/\s?г\.?$/, '');
+    } catch {
+      return '';
+    }
+  }
+
+  function renderResults() {
+    if (!$resultsList) return;
+    if (!history.length) {
+      $resultsList.innerHTML = '<div class="resultsRow"><div class="resultsMain"><div class="resultsLine1">Пока нет игр</div><div class="resultsLine2">Сыграй хотя бы один раунд</div></div></div>';
+      return;
+    }
+
+    $resultsList.innerHTML = history
+      .map((h) => {
+        const badges = [
+          h.isBestScore ? '<span class="badge">Рекорд счёта</span>' : '',
+          h.isBestStreak ? '<span class="badge">Рекорд серии</span>' : '',
+        ].join('');
+
+        return `
+          <div class="resultsRow">
+            <div class="resultsMain">
+              <div class="resultsLine1">Очки: ${h.score} · Лучшая серия: ${h.bestStreak}</div>
+              <div class="resultsLine2">${formatTs(h.ts)}</div>
+            </div>
+            ${h.isBestScore ? '<span class="badge">Рекорд счёта</span>' : '<span></span>'}
+            ${h.isBestStreak ? '<span class="badge">Рекорд серии</span>' : '<span></span>'}
+          </div>
+        `;
+      })
+      .join('');
+  }
+
+  function openResults() {
+    if (!(status === 'idle' || status === 'ended')) return;
+    renderResults();
+    setOverlay($resultsOverlay, true);
+  }
+
+  function closeResults() {
+    setOverlay($resultsOverlay, false);
+  }
+
+  function onCenterHudButtonClick() {
+    if (status === 'idle' || status === 'ended') {
+      openResults();
+      return;
+    }
+
+    if (status === 'running' || status === 'paused') {
+      // Досрочное завершение раунда.
+      endGame();
+    }
+  }
+
   function saveBestStreak() {
     try {
       window.localStorage.setItem(BEST_STREAK_KEY, String(bestStreak));
@@ -280,13 +384,14 @@
     if ($streak) $streak.textContent = String(streak);
     if ($bestStreak) $bestStreak.textContent = String(bestStreak);
 
-    let secondsLeft = 60;
+    let secondsLeft = status === 'idle' ? 60 : 0;
     if (status === 'running') {
       secondsLeft = Math.ceil(Math.max(0, endAtMs - Date.now()) / 1000);
     } else if (status === 'paused') {
       secondsLeft = Math.ceil(Math.max(0, pausedRemainingMs) / 1000);
     }
     $timeLeft.textContent = String(clamp(secondsLeft, 0, 60));
+    updateResultsCellAvailability();
   }
 
   function isPhoneLike() {
@@ -425,6 +530,7 @@
     score = 0;
     bestScoreAtRoundStart = bestScore;
     streak = 0;
+    bestStreakThisRun = 0;
     bestStreakAtRoundStart = bestStreak;
     status = 'running';
     endAtMs = Date.now() + GAME_DURATION_MS;
@@ -434,6 +540,7 @@
 
     setOverlay($startOverlay, false);
     setOverlay($endOverlay, false);
+    closeResults();
 
     updateHud();
     startTick();
@@ -449,9 +556,22 @@
 
     status = 'ended';
 
+    const isBestScore = score > bestScoreAtRoundStart;
+    const isBestStreak = bestStreakThisRun > bestStreakAtRoundStart;
+
     // Рекорд может обновляться “на лету” для HUD — гарантируем сохранение по окончании раунда.
     if (bestScore > bestScoreAtRoundStart) saveBestScore();
     if (bestStreak > bestStreakAtRoundStart) saveBestStreak();
+
+    history.unshift({
+      ts: Date.now(),
+      score,
+      bestStreak: bestStreakThisRun,
+      isBestScore,
+      isBestStreak,
+    });
+    history = history.slice(0, HISTORY_LIMIT);
+    saveHistory();
 
     $finalScore.textContent = String(score);
     $finalBest.textContent = String(bestScore);
@@ -470,6 +590,7 @@
     status = 'idle';
     score = 0;
     streak = 0;
+    bestStreakThisRun = 0;
     pausedRemainingMs = 0;
 
     setOverlay($endOverlay, false);
@@ -508,7 +629,8 @@
       playHitSound();
       score += 1;
       streak += 1;
-      if (streak > bestStreak) bestStreak = streak;
+      if (streak > bestStreakThisRun) bestStreakThisRun = streak;
+      if (bestStreakThisRun > bestStreak) bestStreak = bestStreakThisRun;
       if (score > bestScore) {
         // Можно обновлять рекорд сразу, но сохраняем только в конце раунда.
         bestScore = score;
@@ -537,6 +659,14 @@
       startGame();
     });
 
+    if ($resultsBtn) $resultsBtn.addEventListener('click', () => onCenterHudButtonClick());
+    if ($resultsCloseBtn) $resultsCloseBtn.addEventListener('click', () => closeResults());
+    if ($resultsOverlay) {
+      $resultsOverlay.addEventListener('click', (ev) => {
+        if (ev.target === $resultsOverlay) closeResults();
+      });
+    }
+
     // Pointer Events (предпочтительно)
     $gameField.addEventListener('pointerdown', onPointerDown, { passive: false });
 
@@ -562,6 +692,7 @@
   function init() {
     loadBestScore();
     loadBestStreak();
+    loadHistory();
     updateHud();
     bindEvents();
     updateOrientationOverlay();

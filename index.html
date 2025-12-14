@@ -27,7 +27,9 @@
         <div class="hudCardLabel">Серия</div>
         <div class="hudCardValue" id="streak">0</div>
       </div>
-      <div class="hudSpacer" aria-hidden="true"></div>
+      <div id="resultsCell" class="hudSpacer" aria-label="Результаты">
+        <button id="resultsBtn" class="resultsBtn" type="button" disabled>Результаты</button>
+      </div>
       <div class="hudCard hudCardSmall">
         <div class="hudCardLabel">Рекорд серии</div>
         <div class="hudCardValue" id="bestStreak">0</div>
@@ -60,6 +62,16 @@
         <div class="overlayCard">
           <h2 class="title">Поверните устройство</h2>
           <p class="subtitle">На телефоне игра работает только в портретной ориентации.</p>
+        </div>
+      </section>
+
+      <section id="resultsOverlay" class="overlay hidden" aria-label="Результаты игр" role="dialog" aria-modal="true">
+        <div class="overlayCard resultsCard">
+          <div class="resultsHeader">
+            <h2 class="title resultsTitle">Результаты</h2>
+            <button id="resultsCloseBtn" class="btn btnSmall" type="button">Закрыть</button>
+          </div>
+          <div id="resultsList" class="resultsList" aria-label="История игр"></div>
         </div>
       </section>
     </main>
