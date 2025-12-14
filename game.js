@@ -44,23 +44,67 @@
   /** @type {number | null} */
   let tickTimerId = null;
   let catCatchToken = 0;
+  let audioCtx = null;
+  const hitAudio = new Audio('./assets/sounds/hit.mp3');
+  const missAudio = new Audio('./assets/sounds/miss.mp3');
+  hitAudio.preload = 'auto';
+  missAudio.preload = 'auto';
+  hitAudio.volume = 0.7;
+  missAudio.volume = 0.6;
 
-  function dbgLog(hypothesisId, location, message, data) {
-    // #region agent log
-    fetch('http://127.0.0.1:7243/ingest/2cb024a1-4301-423d-b81b-0ff8e85c4cdf', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        sessionId: 'debug-session',
-        runId: 'pre-fix',
-        hypothesisId,
-        location,
-        message,
-        data,
-        timestamp: Date.now(),
-      }),
-    }).catch(() => {});
-    // #endregion agent log
+  function ensureAudioCtx() {
+    if (audioCtx) return audioCtx;
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    if (!Ctx) return null;
+    audioCtx = new Ctx();
+    return audioCtx;
+  }
+
+  function playTone({ freqHz, durationMs, type = 'sine', gain = 0.04 }) {
+    const ctx = ensureAudioCtx();
+    if (!ctx) return;
+
+    if (ctx.state === 'suspended') {
+      ctx.resume().catch(() => {});
+    }
+
+    const osc = ctx.createOscillator();
+    const g = ctx.createGain();
+    osc.type = type;
+    osc.frequency.value = freqHz;
+    g.gain.value = 0.0001;
+    osc.connect(g);
+    g.connect(ctx.destination);
+
+    const now = ctx.currentTime;
+    const dur = durationMs / 1000;
+    g.gain.setValueAtTime(0.0001, now);
+    g.gain.linearRampToValueAt(gain, now + 0.01);
+    g.gain.exponentialRampToValueAtTime(0.0001, now + dur);
+
+    osc.start(now);
+    osc.stop(now + dur + 0.02);
+  }
+
+  function tryPlayAudio(audioEl) {
+    try {
+      audioEl.currentTime = 0;
+      const p = audioEl.play();
+      if (p && typeof p.catch === 'function') p.catch(() => {});
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  function playHitSound() {
+    const ok = tryPlayAudio(hitAudio);
+    if (!ok) playTone({ freqHz: 880, durationMs: 90, type: 'triangle', gain: 0.04 });
+  }
+
+  function playMissSound() {
+    const ok = tryPlayAudio(missAudio);
+    if (!ok) playTone({ freqHz: 220, durationMs: 110, type: 'sawtooth', gain: 0.03 });
   }
 
   function clamp(n, min, max) {
@@ -123,17 +167,6 @@
     $cat.style.left = `${xPx}px`;
     $cat.style.top = `${yPx}px`;
     $cat.style.display = 'block';
-    // #region agent log
-    dbgLog('H2', 'game.js:setCatVisibleAt', 'cat_set_visible', {
-      status,
-      catCatchToken,
-      xPx,
-      yPx,
-      catDisplay: $cat.style.display,
-      catClasses: $cat.className,
-      catOpacityStyle: $cat.style.opacity || null,
-    });
-    // #endregion agent log
   }
 
   function hideCat() {
@@ -151,51 +184,15 @@
     $cat.style.left = `${xPx}px`;
     $cat.style.top = `${yPx}px`;
     $cat.style.display = 'block';
-    // #region agent log
-    dbgLog('H1', 'game.js:playCatCatchAt', 'cat_catch_start', {
-      status,
-      token,
-      xPx,
-      yPx,
-      catDisplay: $cat.style.display,
-      catClasses: $cat.className,
-      catOpacityStyle: $cat.style.opacity || null,
-    });
-    // #endregion agent log
 
     // Перезапуск CSS-анимации.
     void $cat.offsetWidth;
     $cat.classList.add('catCatch');
 
-    const cleanup = () => {
-      if (catCatchToken !== token) return;
-      $cat.classList.remove('catCatch');
-      $cat.style.display = 'none';
-      // #region agent log
-      dbgLog('H1', 'game.js:playCatCatchAt', 'cat_catch_cleanup_hide', {
-        status,
-        token,
-        catCatchToken,
-        catDisplay: $cat.style.display,
-        catClasses: $cat.className,
-      });
-      // #endregion agent log
-    };
-
     const cleanupKeepVisible = () => {
       if (catCatchToken !== token) return;
       $cat.classList.remove('catCatch');
       $cat.style.display = 'block';
-      // #region agent log
-      dbgLog('H1', 'game.js:playCatCatchAt', 'cat_catch_cleanup_keep_visible', {
-        status,
-        token,
-        catCatchToken,
-        catDisplay: $cat.style.display,
-        catClasses: $cat.className,
-        catOpacityStyle: $cat.style.opacity || null,
-      });
-      // #endregion agent log
     };
 
     $cat.addEventListener('animationend', cleanupKeepVisible, { once: true });
@@ -445,17 +442,14 @@
     // Кот всегда один: просто переносим в последнюю точку.
     setCatVisibleAt(xPx, yPx);
 
-    if (pointInMouseHitbox(xPx, yPx)) {
+    const didHit = pointInMouseHitbox(xPx, yPx);
+    if (!didHit && mouseVisible) {
+      playMissSound();
+    }
+
+    if (didHit) {
       const hitPos = mousePos ? { ...mousePos } : { xPx, yPx };
-      // #region agent log
-      dbgLog('H2', 'game.js:onPointerDown', 'hit_detected', {
-        status,
-        click: { xPx, yPx },
-        hitPos,
-        mouseVisible,
-        mousePos,
-      });
-      // #endregion agent log
+      playHitSound();
       score += 1;
       if (score > bestScore) {
         // Можно обновлять рекорд сразу, но сохраняем только в конце раунда.
