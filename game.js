@@ -16,7 +16,9 @@
   const CHEESE_SOUND_SRC = './assets/sounds/cheese.mp3';
   const RECORD_SOUND_SRC = './assets/sounds/record.mp3';
   const MOUSE_EMOJI = '🐁';
+  const RAT_EMOJI = '🐀';
   const CAT_EMOJI = '🐈';
+  const RAT_SPAWN_CHANCE = 0.15; // 15% chance to spawn rat instead of mouse
 
   const $score = document.getElementById('score');
   const $survivalTime = document.getElementById('survivalTime');
@@ -89,6 +91,18 @@
   let currentMouseHitbox = HALF_HITBOX; // Dynamic hitbox based on speed
   let mouseTargetCheeseIndex = -1; // Which life cheese the mouse is targeting
   let mouseHasGrabbedCheese = false; // Whether mouse has reached and grabbed the cheese
+  
+  let ratVisible = false;
+  /** @type {{xPx:number, yPx:number} | null} */
+  let ratPos = null;
+  let ratEscaping = false;
+  let ratTargetPos = null;
+  let ratEscapeStartTime = 0;
+  let ratEscapeDuration = 0;
+  let currentRatHitbox = HALF_HITBOX;
+  let ratTargetCheeseIndex = -1;
+  let ratHasGrabbedCheese = false;
+  
   let cheeseVisible = false;
   /** @type {{xPx:number, yPx:number} | null} */
   let cheesePos = null;
@@ -102,6 +116,7 @@
 
   // Canvas emoji sizes
   const MOUSE_SIZE = 32;
+  const RAT_SIZE = 32;
   const CHEESE_SIZE = 52;
   const CHEESE_LIFE_SIZE = 40;
   const CAT_SIZE = 56;
@@ -490,6 +505,57 @@
       ctx.restore();
     }
 
+    // Draw rat if visible
+    if (ratVisible && ratPos) {
+      // Interpolate position if escaping
+      let drawX = ratPos.xPx;
+      let drawY = ratPos.yPx;
+      let angle = 0;
+
+      if (ratEscaping && ratTargetPos && window.ratControlPoints) {
+        const now = Date.now();
+        const elapsed = now - ratEscapeStartTime;
+        const t = Math.min(1, elapsed / ratEscapeDuration);
+
+        // Generalized Bezier curve with variable control points
+        const points = [ratPos, ...window.ratControlPoints, ratTargetPos];
+
+        function bezierPoint(pts, t) {
+          if (pts.length === 1) return pts[0];
+          const newPts = [];
+          for (let i = 0; i < pts.length - 1; i++) {
+            newPts.push({
+              xPx: (1 - t) * pts[i].xPx + t * pts[i + 1].xPx,
+              yPx: (1 - t) * pts[i].yPx + t * pts[i + 1].yPx
+            });
+          }
+          return bezierPoint(newPts, t);
+        }
+
+        const pos = bezierPoint(points, t);
+        drawX = pos.xPx;
+        drawY = pos.yPx;
+
+        // Calculate tangent for rotation
+        const dt = 0.01;
+        const pos1 = bezierPoint(points, Math.max(0, t - dt));
+        const pos2 = bezierPoint(points, Math.min(1, t + dt));
+        const dx = pos2.xPx - pos1.xPx;
+        const dy = pos2.yPx - pos1.yPx;
+
+        angle = Math.atan2(dy, dx) - Math.PI / 2;
+      }
+
+      // Draw emoji with rotation
+      ctx.save();
+      ctx.translate(drawX, drawY);
+      ctx.rotate(angle);
+      ctx.font = `${RAT_SIZE}px Arial, "Apple Color Emoji", "Segoe UI Emoji"`;
+      ctx.fillStyle = '#000';
+      ctx.fillText(RAT_EMOJI, 0, 0);
+      ctx.restore();
+    }
+
     // Draw cheese if visible
     if (cheeseVisible && cheesePos) {
       try {
@@ -675,6 +741,18 @@
     }
   }
 
+  function setRatVisible(isVisible) {
+    ratVisible = isVisible;
+    if (!isVisible) {
+      ratPos = null;
+      ratEscaping = false;
+      ratTargetPos = null;
+      currentRatHitbox = HALF_HITBOX;
+      ratTargetCheeseIndex = -1;
+      ratHasGrabbedCheese = false;
+    }
+  }
+
   function setCheeseVisible(isVisible) {
     cheeseVisible = isVisible;
     if (!isVisible) cheesePos = null;
@@ -737,6 +815,7 @@
     pausedSurvivalMs = Date.now() - gameStartMs;
     clearAllTimers();
     setMouseVisible(false);
+    setRatVisible(false);
     setCheeseVisible(false);
     status = 'paused';
     updateHud();
@@ -762,6 +841,7 @@
     pausedSurvivalMs = Date.now() - gameStartMs;
     clearAllTimers();
     setMouseVisible(false);
+    setRatVisible(false);
     setCheeseVisible(false);
     status = 'paused';
     if ($pauseBtn) $pauseBtn.style.display = 'none';
@@ -831,10 +911,12 @@
       // Count actual alive cheeses
       const aliveCheesesCount = cheeseLifePositions.filter(c => c.alive).length;
 
-      // Randomly decide to spawn cheese or mouse
+      // Randomly decide to spawn cheese, rat, or mouse
       // Only spawn cheese if player doesn't have all lives
       if (aliveCheesesCount < MAX_LIVES && Math.random() < CHEESE_SPAWN_CHANCE) {
         showCheese();
+      } else if (Math.random() < RAT_SPAWN_CHANCE) {
+        showRat();
       } else {
         showMouse();
       }
@@ -1068,6 +1150,198 @@
     }
   }
 
+  function showRat() {
+    if (status !== 'running') return;
+    if (!isOrientationAllowed()) return;
+
+    const pos = pickRandomMousePosition();
+    if (!pos) {
+      console.log('Failed to pick rat position');
+      scheduleNextMouse();
+      return;
+    }
+
+    console.log('Spawning rat at', pos);
+    ratPos = pos;
+    setRatVisible(true);
+
+    // Start escaping immediately!
+    animateRatEscape();
+  }
+
+  function animateRatEscape() {
+    if (!ratVisible || !ratPos) return;
+    if (cheeseLifePositions.length === 0) return; // No cheese to steal
+
+    ratEscaping = true;
+    ratHasGrabbedCheese = false;
+
+    // Pick a random alive cheese to target
+    const aliveCheeses = cheeseLifePositions
+      .map((cheese, index) => ({ cheese, index }))
+      .filter(item => item.cheese.alive);
+
+    if (aliveCheeses.length === 0) return; // No alive cheese
+
+    const randomAlive = aliveCheeses[Math.floor(Math.random() * aliveCheeses.length)];
+    ratTargetCheeseIndex = randomAlive.index;
+    const targetCheese = randomAlive.cheese;
+
+    // Calculate difficulty-adjusted animation duration (1.5x faster than mouse)
+    const survivalSeconds = Math.floor((Date.now() - gameStartMs + survivalTimeMs) / 1000);
+    const difficultyFactor = Math.max(0.3, 1 - survivalSeconds / 120);
+    const baseAnimationDuration = Math.floor(1500 * difficultyFactor);
+    const animationDuration = Math.floor(baseAnimationDuration / 1.5); // 1.5x faster
+
+    // Minimal hitbox increase for faster rats
+    const speedRatio = 1500 / animationDuration;
+    const hitboxMultiplier = Math.pow(speedRatio, 0.3);
+    currentRatHitbox = HALF_HITBOX * hitboxMultiplier;
+
+    const canvasRect = $canvas.getBoundingClientRect();
+
+    // Target: first to the cheese, then below canvas
+    const cheeseX = targetCheese.xPx;
+    const cheeseY = targetCheese.yPx;
+    const finalY = canvasRect.height + 100;
+    const targetX = cheeseX;
+    const targetY = finalY;
+
+    // Random path complexity: 2-5 control points
+    const numControlPoints = Math.floor(Math.random() * 4) + 2;
+    console.log(`Creating rat path with ${numControlPoints} control points`);
+
+    // Generate control points with random offsets
+    const controlPoints = [];
+    for (let i = 0; i < numControlPoints; i++) {
+      const ratio = (i + 1) / (numControlPoints + 1);
+      const offsetScale = 0.3 - (i * 0.05);
+      const offsetX = (Math.random() - 0.5) * canvasRect.width * offsetScale;
+      const offsetY = (Math.random() - 0.5) * canvasRect.height * (offsetScale * 0.5);
+
+      controlPoints.push({
+        xPx: ratPos.xPx + (cheeseX - ratPos.xPx) * ratio + offsetX,
+        yPx: ratPos.yPx + (cheeseY - ratPos.yPx) * ratio + offsetY
+      });
+    }
+
+    // Adjust last control point to ensure curve goes through cheese
+    const lastIdx = controlPoints.length - 1;
+    controlPoints[lastIdx] = {
+      xPx: cheeseX + (Math.random() - 0.5) * 30,
+      yPx: cheeseY + (Math.random() - 0.5) * 30
+    };
+
+    // Store control points
+    window.ratControlPoints = controlPoints;
+
+    // Store animation params for render loop
+    ratTargetPos = { xPx: targetX, yPx: targetY };
+    ratEscapeStartTime = Date.now();
+    ratEscapeDuration = animationDuration;
+
+    // Check periodically if rat hitbox reached the cheese
+    const checkInterval = setInterval(() => {
+      if (!ratEscaping) {
+        clearInterval(checkInterval);
+        return;
+      }
+
+      const now = Date.now();
+      const elapsed = now - ratEscapeStartTime;
+      const t = Math.min(1, elapsed / ratEscapeDuration);
+
+      // Determine current rat position on the curve
+      let currentRatX = ratPos.xPx;
+      let currentRatY = ratPos.yPx;
+      if (ratTargetPos && window.ratControlPoints) {
+        const points = [ratPos, ...window.ratControlPoints, ratTargetPos];
+
+        function bezierPoint(pts, t) {
+          if (pts.length === 1) return pts[0];
+          const newPts = [];
+          for (let i = 0; i < pts.length - 1; i++) {
+            newPts.push({
+              xPx: (1 - t) * pts[i].xPx + t * pts[i + 1].xPx,
+              yPx: (1 - t) * pts[i].yPx + t * pts[i + 1].yPx
+            });
+          }
+          return bezierPoint(newPts, t);
+        }
+
+        const pos = bezierPoint(points, t);
+        currentRatX = pos.xPx;
+        currentRatY = pos.yPx;
+      }
+
+      // When rat hitbox touches the targeted cheese emoji -> cheese is eaten
+      const cheeseHalf = CHEESE_LIFE_SIZE / 2;
+      const targetCheese = (ratTargetCheeseIndex >= 0 && ratTargetCheeseIndex < cheeseLifePositions.length)
+        ? cheeseLifePositions[ratTargetCheeseIndex]
+        : null;
+
+      const hitCheese = !!(targetCheese && targetCheese.alive) && (
+        Math.abs(currentRatX - targetCheese.xPx) <= (currentRatHitbox + cheeseHalf) &&
+        Math.abs(currentRatY - targetCheese.yPx) <= (currentRatHitbox + cheeseHalf)
+      );
+
+      if (!ratHasGrabbedCheese && hitCheese) {
+        ratHasGrabbedCheese = true;
+        targetCheese.alive = false;
+        lives = Math.max(0, lives - 1);
+        playMissSound();
+        console.log(`Rat grabbed cheese! Lives remaining: ${lives}`);
+
+        const aliveCheesesCount = cheeseLifePositions.filter(c => c.alive).length;
+        if (lives <= 0 || aliveCheesesCount === 0) {
+          console.log('Game Over - No more lives!');
+          clearInterval(checkInterval);
+          ratEscaping = false;
+          endGame();
+        }
+      }
+    }, 50);
+
+    // After animation completes, steal cheese
+    setTimeout(() => {
+      clearInterval(checkInterval);
+
+      if (status !== 'running' || !ratEscaping) return;
+
+      ratEscaping = false;
+      setRatVisible(false);
+
+      // Steal the targeted cheese
+      stealCheeseForRat();
+
+      if (status === 'running') {
+        scheduleNextMouse();
+      }
+    }, animationDuration);
+  }
+
+  function stealCheeseForRat() {
+    // Mark the targeted cheese as not alive
+    if (ratTargetCheeseIndex >= 0 && ratTargetCheeseIndex < cheeseLifePositions.length) {
+      const wasAlive = cheeseLifePositions[ratTargetCheeseIndex].alive;
+
+      if (wasAlive) {
+        cheeseLifePositions[ratTargetCheeseIndex].alive = false;
+        lives = Math.max(0, lives - 1);
+        console.log(`Rat animation completed - cheese stolen! Lives remaining: ${lives}`);
+      }
+    }
+
+    updateHud();
+
+    // Check if game should end
+    const aliveCheesesCount = cheeseLifePositions.filter(c => c.alive).length;
+    if (lives <= 0 || aliveCheesesCount === 0) {
+      console.log('Game Over - No more lives!');
+      endGame();
+    }
+  }
+
   function spawnPuffEffect(xPx, yPx) {
     effects.push({ type: 'puff', xPx, yPx, startMs: Date.now(), durationMs: 320 });
   }
@@ -1147,6 +1421,7 @@
     resetCheeseLifeStates(); // Reset cheese life states
 
     setMouseVisible(false);
+    setRatVisible(false);
     setCheeseVisible(false);
 
     setOverlay($startOverlay, false);
@@ -1165,6 +1440,7 @@
 
     clearAllTimers();
     setMouseVisible(false);
+    setRatVisible(false);
     setCheeseVisible(false);
 
     status = 'ended';
@@ -1210,6 +1486,7 @@
   function resetToIdle() {
     clearAllTimers();
     setMouseVisible(false);
+    setRatVisible(false);
     setCheeseVisible(false);
     hideCat();
 
@@ -1318,6 +1595,62 @@
       }
     }
 
+    // Check if caught escaping rat (use bezier curve interpolated position)
+    if (ratEscaping && ratVisible) {
+      let currentRatX = ratPos.xPx;
+      let currentRatY = ratPos.yPx;
+
+      if (ratTargetPos && window.ratControlPoints) {
+        const now = Date.now();
+        const elapsed = now - ratEscapeStartTime;
+        const t = Math.min(1, elapsed / ratEscapeDuration);
+
+        // Generalized Bezier curve (matches render loop)
+        const points = [ratPos, ...window.ratControlPoints, ratTargetPos];
+
+        function bezierPoint(pts, t) {
+          if (pts.length === 1) return pts[0];
+          const newPts = [];
+          for (let i = 0; i < pts.length - 1; i++) {
+            newPts.push({
+              xPx: (1 - t) * pts[i].xPx + t * pts[i + 1].xPx,
+              yPx: (1 - t) * pts[i].yPx + t * pts[i + 1].yPx
+            });
+          }
+          return bezierPoint(newPts, t);
+        }
+
+        const pos = bezierPoint(points, t);
+        currentRatX = pos.xPx;
+        currentRatY = pos.yPx;
+      }
+
+      if (pointInHitbox(xPx, yPx, currentRatX, currentRatY, currentRatHitbox)) {
+        score += 3; // Rat gives +3 points
+        playHitSound();
+        // Hit effects: 💥 + floating +3 at rat position.
+        spawnPuffEffect(currentRatX, currentRatY);
+        spawnScoreEffect(currentRatX, currentRatY - 36, '+3');
+        if (score > bestScore) {
+          bestScore = score;
+        }
+        // Check if score record was beaten
+        if (!recordScoreShown && score > bestScoreAtRoundStart) {
+          recordScoreShown = true;
+          playRecordSound();
+          spawnRecordEffect(currentRatX, currentRatY - 70, 'Рекорд очков!');
+        }
+        updateHud();
+
+        // Caught the escaping rat!
+        ratEscaping = false;
+        setRatVisible(false);
+        scheduleNextMouse();
+        ev.preventDefault?.();
+        return;
+      }
+    }
+
     // Check if caught cheese (restore life)
     if (pointInCheeseHitbox(xPx, yPx)) {
       // Count actual alive cheeses
@@ -1384,9 +1717,10 @@
       setupCanvas(); // Resize canvas
       updateOrientationOverlay();
 
-      // При ресайзе безопасно скрыть мышь и сыр и продолжить цикл.
+      // При ресайзе безопасно скрыть мышь, крысу и сыр и продолжить цикл.
       if (status === 'running') {
         setMouseVisible(false);
+        setRatVisible(false);
         setCheeseVisible(false);
         clearTimer(cheeseHideTimerId);
         cheeseHideTimerId = null;
@@ -1421,6 +1755,7 @@
             pausedSurvivalMs = Date.now() - gameStartMs;
             clearAllTimers();
             setMouseVisible(false);
+            setRatVisible(false);
             setCheeseVisible(false);
             status = 'paused';
             updateHud();
