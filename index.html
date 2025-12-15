@@ -2,34 +2,39 @@
 <html lang="ru">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
     <title>Кот ловит мышь</title>
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
     <header id="hud" aria-label="Панель игры">
       <div class="hudItem"><span class="hudLabel">Счёт:</span> <span id="score">0</span></div>
-      <div class="hudItem"><span class="hudLabel">Время:</span> <span id="timeLeft">60</span></div>
-      <div class="hudItem"><span class="hudLabel">Рекорд:</span> <span id="bestScore">0</span></div>
+      <div class="hudItem"><span class="hudLabel">Время:</span> <span id="survivalTime">0</span>с</div>
+      <div class="hudItem"><span class="hudLabel">Уровень:</span> <span id="level">0</span></div>
     </header>
 
     <main id="gameField" aria-label="Игровое поле">
-      <div id="mouse" aria-hidden="true">🐭</div>
-      <div id="cat" aria-hidden="true">😺</div>
+      <canvas id="gameCanvas"></canvas>
 
       <section id="startOverlay" class="overlay" aria-label="Старт">
         <div class="overlayCard">
           <h1 class="title">Кот ловит мышь</h1>
-          <p class="subtitle">Лови как можно больше мышей за 60 секунд.</p>
-          <button id="startBtn" class="btn" type="button">Старт</button>
+          <p class="subtitle">У тебя 5 жизней (🧀). Лови мышей — если мышь убегает, теряешь жизнь. Лови сыр, чтобы восстановить жизнь. Продержись как можно дольше!</p>
+          <div id="savedLevelInfo" class="subtitle" style="display: none; margin-top: 8px;">
+            <strong>Сохранённый прогресс: Уровень <span id="savedLevelDisplay">0</span></strong>
+          </div>
+          <button id="startBtn" class="btn" type="button">Новая игра</button>
+          <button id="continueBtn" class="btn" type="button" style="display: none; margin-top: 8px;">Продолжить с уровня <span id="continueLevelDisplay">0</span></button>
         </div>
       </section>
 
       <section id="endOverlay" class="overlay hidden" aria-label="Конец игры">
         <div class="overlayCard">
-          <h2 class="title">Время вышло</h2>
-          <p class="subtitle">Счёт: <strong id="finalScore">0</strong></p>
-          <p class="subtitle">Рекорд: <strong id="finalBest">0</strong></p>
+          <h2 class="title">Игра окончена!</h2>
+          <p class="subtitle">Время выживания: <strong id="finalTime">0</strong> сек</p>
+          <p class="subtitle">Достигнутый уровень: <strong id="finalLevel">0</strong></p>
+          <p class="subtitle">Поймано мышей: <strong id="finalScore">0</strong></p>
+          <p class="subtitle">Лучший счёт: <strong id="finalBest">0</strong></p>
           <button id="restartBtn" class="btn" type="button">Сыграть ещё раз</button>
         </div>
       </section>

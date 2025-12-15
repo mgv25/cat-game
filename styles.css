@@ -25,6 +25,8 @@ body {
   background: radial-gradient(1200px 800px at 50% 0%, #18234a 0%, var(--bg) 60%, #050814 100%);
   color: var(--text);
   overflow: hidden;
+  touch-action: manipulation;
+  -webkit-text-size-adjust: none;
 }
 
 #hud {
@@ -53,29 +55,16 @@ body {
   height: calc(100% - var(--hud-height));
   position: relative;
   overflow: hidden;
-  touch-action: none;
+  touch-action: manipulation;
   user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
 }
 
-#mouse,
-#cat {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  transform: translate(-50%, -50%);
-  line-height: 1;
-  text-shadow: 0 6px 24px rgba(0, 0, 0, 0.35);
-  will-change: transform, left, top, opacity;
-}
-
-#mouse {
-  font-size: 64px;
-  display: none;
-}
-
-#cat {
-  font-size: 56px;
-  display: none;
+#gameCanvas {
+  width: 100%;
+  height: 100%;
+  display: block;
 }
 
 .overlay {
@@ -141,13 +130,5 @@ body {
 
   .hudItem {
     font-size: 14px;
-  }
-
-  #mouse {
-    font-size: 56px;
-  }
-
-  #cat {
-    font-size: 50px;
   }
 }

@@ -1,24 +1,37 @@
 (() => {
-  const GAME_DURATION_MS = 60_000;
+  const MAX_LIVES = 5;
+  const INITIAL_LIVES = 5;
   const BEST_SCORE_KEY = 'catMouseBestScore';
-  const HITBOX_SIZE_PX = 80;
+  const SAVED_LEVEL_KEY = 'catMouseSavedLevel';
+  const HITBOX_SIZE_PX = 60; // Base hitbox size (reduced for difficulty)
   const HALF_HITBOX = HITBOX_SIZE_PX / 2;
+  const BASE_MIN_SPAWN_MS = 800;
+  const BASE_MAX_SPAWN_MS = 3000;
+  const BASE_SHOW_DURATION_MS = 2000;
+  const CHEESE_SPAWN_CHANCE = 0.15; // 15% chance to spawn cheese
 
   const $score = document.getElementById('score');
-  const $timeLeft = document.getElementById('timeLeft');
-  const $bestScore = document.getElementById('bestScore');
+  const $survivalTime = document.getElementById('survivalTime');
+  const $level = document.getElementById('level');
 
   const $gameField = document.getElementById('gameField');
-  const $mouse = document.getElementById('mouse');
-  const $cat = document.getElementById('cat');
+  const $canvas = document.getElementById('gameCanvas');
+  const ctx = $canvas.getContext('2d');
 
   const $startOverlay = document.getElementById('startOverlay');
   const $endOverlay = document.getElementById('endOverlay');
   const $rotateOverlay = document.getElementById('rotateOverlay');
 
   const $startBtn = document.getElementById('startBtn');
+  const $continueBtn = document.getElementById('continueBtn');
   const $restartBtn = document.getElementById('restartBtn');
 
+  const $savedLevelInfo = document.getElementById('savedLevelInfo');
+  const $savedLevelDisplay = document.getElementById('savedLevelDisplay');
+  const $continueLevelDisplay = document.getElementById('continueLevelDisplay');
+
+  const $finalTime = document.getElementById('finalTime');
+  const $finalLevel = document.getElementById('finalLevel');
   const $finalScore = document.getElementById('finalScore');
   const $finalBest = document.getElementById('finalBest');
 
@@ -29,15 +42,47 @@
   let bestScore = 0;
   let bestScoreAtRoundStart = 0;
 
-  let endAtMs = 0;
-  let pausedRemainingMs = 0;
+  let lives = INITIAL_LIVES;
+  let currentLevel = 0;
+  let savedLevel = 0;
+  let gameStartMs = 0;
+  let survivalTimeMs = 0;
+  let pausedSurvivalMs = 0;
 
   let mouseVisible = false;
   /** @type {{xPx:number, yPx:number} | null} */
   let mousePos = null;
+  let mouseEscaping = false;
+  let mouseTargetPos = null; // Target position for escaping mouse
+  let mouseControlPoint1 = null; // First bezier curve control point
+  let mouseControlPoint2 = null; // Second bezier curve control point
+  let mouseEscapeStartTime = 0;
+  let mouseEscapeDuration = 0;
+  let currentMouseHitbox = HALF_HITBOX; // Dynamic hitbox based on speed
+  let mouseTargetCheeseIndex = -1; // Which life cheese the mouse is targeting
+  let mouseHasGrabbedCheese = false; // Whether mouse has reached and grabbed the cheese
+  let cheeseVisible = false;
+  /** @type {{xPx:number, yPx:number} | null} */
+  let cheesePos = null;
+  let catVisible = false;
+  /** @type {{xPx:number, yPx:number} | null} */
+  let catPos = null;
+
+  // Canvas emoji sizes
+  const MOUSE_SIZE = 64;
+  const CHEESE_SIZE = 52;
+  const CHEESE_LIFE_SIZE = 40;
+  const CAT_SIZE = 56;
+
+  // Spawn line (mice and cheese spawn only above this)
+  const SPAWN_LINE_MARGIN = 100; // Distance above cheese row
+
+  // Life cheese positions on canvas (array of {xPx, yPx, alive})
+  /** @type {Array<{xPx:number, yPx:number, alive:boolean}>} */
+  let cheeseLifePositions = [];
 
   /** @type {number | null} */
-  let mouseHideTimerId = null;
+  let cheeseHideTimerId = null;
   /** @type {number | null} */
   let nextSpawnTimerId = null;
   /** @type {number | null} */
@@ -51,6 +96,198 @@
     return Math.floor(Math.random() * (max - min + 1)) + min;
   }
 
+  function setupCanvas() {
+    const rect = $canvas.getBoundingClientRect();
+    const dpr = window.devicePixelRatio || 1;
+    $canvas.width = rect.width * dpr;
+    $canvas.height = rect.height * dpr;
+    ctx.scale(dpr, dpr);
+    initializeCheeseLifePositions();
+  }
+
+  function initializeCheeseLifePositions() {
+    // Initialize fixed positions for all cheese lives (only called once on setup)
+    const canvasRect = $canvas.getBoundingClientRect();
+
+    // Position cheeses centered between spawn line and bottom
+    // Spawn line is SPAWN_LINE_MARGIN above cheese, cheese is centered in remaining space
+    const totalBottomSpace = SPAWN_LINE_MARGIN * 2; // Total space reserved at bottom
+    const baseY = canvasRect.height - (totalBottomSpace / 2); // Center in bottom area
+
+    const startX = 30; // Start 30px from left edge
+    const endX = canvasRect.width - 30; // End 30px from right edge
+    const totalWidth = endX - startX;
+    const spacing = MAX_LIVES > 1 ? totalWidth / (MAX_LIVES - 1) : 0;
+
+    // Preserve alive states if positions already exist (for resize)
+    const previousAliveStates = cheeseLifePositions.map(c => c.alive);
+
+    cheeseLifePositions = [];
+    for (let i = 0; i < MAX_LIVES; i++) {
+      cheeseLifePositions.push({
+        xPx: startX + i * spacing,
+        yPx: baseY,
+        alive: previousAliveStates.length > 0 ? previousAliveStates[i] : true
+      });
+    }
+  }
+
+  function resetCheeseLifeStates() {
+    // Reset all cheese to alive state based on current lives
+    for (let i = 0; i < cheeseLifePositions.length; i++) {
+      cheeseLifePositions[i].alive = i < lives;
+    }
+  }
+
+  function render() {
+    const rect = $canvas.getBoundingClientRect();
+    ctx.clearRect(0, 0, rect.width, rect.height);
+
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+
+    // Draw mouse if visible
+    if (mouseVisible && mousePos) {
+      // Interpolate position if escaping
+      let drawX = mousePos.xPx;
+      let drawY = mousePos.yPx;
+      let angle = 0;
+
+      if (mouseEscaping && mouseTargetPos && window.mouseControlPoints) {
+        const now = Date.now();
+        const elapsed = now - mouseEscapeStartTime;
+        const t = Math.min(1, elapsed / mouseEscapeDuration);
+
+        // Generalized Bezier curve with variable control points
+        // Build full point array: [start, ...controlPoints, end]
+        const points = [mousePos, ...window.mouseControlPoints, mouseTargetPos];
+        const n = points.length - 1; // degree
+
+        // De Casteljau's algorithm for Bezier curve evaluation
+        function bezierPoint(pts, t) {
+          if (pts.length === 1) return pts[0];
+          const newPts = [];
+          for (let i = 0; i < pts.length - 1; i++) {
+            newPts.push({
+              xPx: (1 - t) * pts[i].xPx + t * pts[i + 1].xPx,
+              yPx: (1 - t) * pts[i].yPx + t * pts[i + 1].yPx
+            });
+          }
+          return bezierPoint(newPts, t);
+        }
+
+        const pos = bezierPoint(points, t);
+        drawX = pos.xPx;
+        drawY = pos.yPx;
+
+        // Calculate tangent for rotation (derivative at t)
+        const dt = 0.01;
+        const pos1 = bezierPoint(points, Math.max(0, t - dt));
+        const pos2 = bezierPoint(points, Math.min(1, t + dt));
+        const dx = pos2.xPx - pos1.xPx;
+        const dy = pos2.yPx - pos1.yPx;
+
+        angle = Math.atan2(dy, dx) - Math.PI / 2; // Rotate 90° counter-clockwise
+      }
+
+      // Debug: Draw hitbox circle
+      ctx.strokeStyle = 'rgba(255, 0, 0, 0.3)';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(drawX, drawY, currentMouseHitbox, 0, Math.PI * 2);
+      ctx.stroke();
+
+      // Draw emoji with rotation
+      ctx.save();
+      ctx.translate(drawX, drawY);
+      ctx.rotate(angle);
+      ctx.font = `${MOUSE_SIZE}px Arial, "Apple Color Emoji", "Segoe UI Emoji"`;
+      ctx.fillStyle = '#000';
+      ctx.fillText('🐭', 0, 0);
+      ctx.restore();
+
+      // Debug: Draw position text
+      ctx.font = '12px Arial';
+      ctx.fillStyle = '#fff';
+      ctx.fillText(`${Math.round(drawX)},${Math.round(drawY)}`, drawX, drawY + 50);
+    }
+
+    // Draw cheese if visible
+    if (cheeseVisible && cheesePos) {
+      try {
+        // Debug: Draw hitbox circle for cheese
+        ctx.strokeStyle = 'rgba(0, 255, 0, 0.3)';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(cheesePos.xPx, cheesePos.yPx, HALF_HITBOX, 0, Math.PI * 2);
+        ctx.stroke();
+
+        // Draw emoji
+        ctx.font = `${CHEESE_SIZE}px Arial, "Apple Color Emoji", "Segoe UI Emoji"`;
+        ctx.fillStyle = '#000';
+        ctx.fillText('🧀', cheesePos.xPx, cheesePos.yPx);
+
+        // Debug: Draw position text
+        ctx.font = '12px Arial';
+        ctx.fillStyle = '#0f0';
+        ctx.fillText(`C:${Math.round(cheesePos.xPx)},${Math.round(cheesePos.yPx)}`, cheesePos.xPx, cheesePos.yPx + 40);
+      } catch (e) {
+        console.error('Cheese render error:', e);
+      }
+    }
+
+    // Draw cat if visible
+    if (catVisible && catPos) {
+      try {
+        ctx.font = `${CAT_SIZE}px Arial, "Apple Color Emoji", "Segoe UI Emoji"`;
+        ctx.fillStyle = '#000';
+        ctx.fillText('😺', catPos.xPx, catPos.yPx);
+      } catch (e) {
+        console.error('Cat render error:', e);
+      }
+    }
+
+    // Draw spawn line (dashed line above cheese row)
+    if (cheeseLifePositions.length > 0) {
+      const spawnLineY = cheeseLifePositions[0].yPx - SPAWN_LINE_MARGIN;
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([10, 10]); // Dashed line pattern
+      ctx.beginPath();
+      ctx.moveTo(0, spawnLineY);
+      ctx.lineTo(rect.width, spawnLineY);
+      ctx.stroke();
+      ctx.setLineDash([]); // Reset to solid line
+    }
+
+    // Draw life cheeses on canvas
+    ctx.font = `${CHEESE_LIFE_SIZE}px Arial, "Apple Color Emoji", "Segoe UI Emoji"`;
+    ctx.fillStyle = '#000';
+    for (let i = 0; i < cheeseLifePositions.length; i++) {
+      const pos = cheeseLifePositions[i];
+
+      // Debug: Draw target indicator for the cheese being targeted
+      if (mouseTargetCheeseIndex === i && mouseEscaping) {
+        ctx.strokeStyle = 'rgba(255, 255, 0, 0.6)';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.arc(pos.xPx, pos.yPx, 35, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+
+      // Skip if not alive
+      if (!pos.alive) continue;
+      // If this cheese is being targeted and mouse has grabbed it, don't draw it
+      if (mouseTargetCheeseIndex === i && mouseHasGrabbedCheese) {
+        continue;
+      }
+      ctx.fillText('🧀', pos.xPx, pos.yPx);
+    }
+
+    // Continue render loop
+    requestAnimationFrame(render);
+  }
+
   function clearTimer(id) {
     if (id != null) window.clearTimeout(id);
   }
@@ -60,10 +297,10 @@
   }
 
   function clearAllTimers() {
-    clearTimer(mouseHideTimerId);
+    clearTimer(cheeseHideTimerId);
     clearTimer(nextSpawnTimerId);
     clearIntervalTimer(tickTimerId);
-    mouseHideTimerId = null;
+    cheeseHideTimerId = null;
     nextSpawnTimerId = null;
     tickTimerId = null;
   }
@@ -86,37 +323,116 @@
     }
   }
 
+  function loadSavedLevel() {
+    try {
+      const raw = window.localStorage.getItem(SAVED_LEVEL_KEY);
+      const n = Number(raw);
+      savedLevel = Number.isFinite(n) && n >= 0 ? Math.floor(n) : 0;
+    } catch {
+      savedLevel = 0;
+    }
+  }
+
+  function saveLevelProgress(level) {
+    try {
+      window.localStorage.setItem(SAVED_LEVEL_KEY, String(level));
+      savedLevel = level;
+    } catch {
+      // ignore
+    }
+  }
+
+  // Generate Fibonacci number for a given index (0-indexed)
+  function fibonacci(n) {
+    if (n <= 0) return 0;
+    if (n === 1) return 1;
+    let a = 0, b = 1;
+    for (let i = 2; i <= n; i++) {
+      const temp = a + b;
+      a = b;
+      b = temp;
+    }
+    return b;
+  }
+
+  // Get the time threshold in seconds for a given level
+  function getLevelTimeSeconds(level) {
+    return fibonacci(level);
+  }
+
+  // Calculate current level based on survival time in seconds
+  function calculateLevel(survivalSeconds) {
+    let level = 0;
+    while (getLevelTimeSeconds(level + 1) <= survivalSeconds) {
+      level++;
+    }
+    return level;
+  }
+
   function setOverlay($el, isVisible) {
     $el.classList.toggle('hidden', !isVisible);
   }
 
+  function updateStartOverlay() {
+    if (savedLevel > 0) {
+      $savedLevelInfo.style.display = 'block';
+      $savedLevelDisplay.textContent = String(savedLevel);
+      $continueBtn.style.display = 'block';
+      $continueLevelDisplay.textContent = String(savedLevel);
+    } else {
+      $savedLevelInfo.style.display = 'none';
+      $continueBtn.style.display = 'none';
+    }
+  }
+
   function setMouseVisible(isVisible) {
+    if (!isVisible && mouseVisible) {
+      // Log when mouse becomes invisible
+      console.trace('Mouse hidden');
+    }
     mouseVisible = isVisible;
-    $mouse.style.display = isVisible ? 'block' : 'none';
-    if (!isVisible) mousePos = null;
+    if (!isVisible) {
+      mousePos = null;
+      mouseEscaping = false;
+      mouseTargetPos = null;
+      mouseControlPoint1 = null;
+      mouseControlPoint2 = null;
+      currentMouseHitbox = HALF_HITBOX; // Reset to default
+      mouseTargetCheeseIndex = -1;
+      mouseHasGrabbedCheese = false;
+    }
+  }
+
+  function setCheeseVisible(isVisible) {
+    cheeseVisible = isVisible;
+    if (!isVisible) cheesePos = null;
   }
 
   function setCatVisibleAt(xPx, yPx) {
-    $cat.style.left = `${xPx}px`;
-    $cat.style.top = `${yPx}px`;
-    $cat.style.display = 'block';
+    catVisible = true;
+    catPos = { xPx, yPx };
   }
 
   function hideCat() {
-    $cat.style.display = 'none';
+    catVisible = false;
+    catPos = null;
   }
 
   function updateHud() {
     $score.textContent = String(score);
-    $bestScore.textContent = String(bestScore);
+    $level.textContent = String(currentLevel);
 
-    let secondsLeft = 60;
+    let survivalSeconds = 0;
     if (status === 'running') {
-      secondsLeft = Math.ceil(Math.max(0, endAtMs - Date.now()) / 1000);
+      survivalSeconds = Math.floor((Date.now() - gameStartMs + survivalTimeMs) / 1000);
+      currentLevel = calculateLevel(survivalSeconds);
     } else if (status === 'paused') {
-      secondsLeft = Math.ceil(Math.max(0, pausedRemainingMs) / 1000);
+      survivalSeconds = Math.floor((pausedSurvivalMs + survivalTimeMs) / 1000);
+    } else {
+      survivalSeconds = Math.floor(survivalTimeMs / 1000);
     }
-    $timeLeft.textContent = String(clamp(secondsLeft, 0, 60));
+    $survivalTime.textContent = String(survivalSeconds);
+    $level.textContent = String(currentLevel);
   }
 
   function isPhoneLike() {
@@ -134,9 +450,10 @@
 
   function pauseGameForOrientation() {
     if (status !== 'running') return;
-    pausedRemainingMs = Math.max(0, endAtMs - Date.now());
+    pausedSurvivalMs = Date.now() - gameStartMs;
     clearAllTimers();
     setMouseVisible(false);
+    setCheeseVisible(false);
     status = 'paused';
     updateHud();
   }
@@ -145,8 +462,9 @@
     if (status !== 'paused') return;
     if (!isOrientationAllowed()) return;
 
-    endAtMs = Date.now() + pausedRemainingMs;
-    pausedRemainingMs = 0;
+    survivalTimeMs = survivalTimeMs + pausedSurvivalMs;
+    gameStartMs = Date.now();
+    pausedSurvivalMs = 0;
     status = 'running';
     startTick();
     scheduleNextMouse();
@@ -168,12 +486,6 @@
     clearIntervalTimer(tickTimerId);
     tickTimerId = window.setInterval(() => {
       if (status !== 'running') return;
-
-      const msLeft = endAtMs - Date.now();
-      if (msLeft <= 0) {
-        endGame();
-        return;
-      }
       updateHud();
     }, 125);
   }
@@ -181,28 +493,48 @@
   function scheduleNextMouse() {
     if (status !== 'running') return;
     if (!isOrientationAllowed()) return;
-    if (Date.now() >= endAtMs) return;
 
-    const waitMs = randomIntInclusive(0, 3000);
+    // Calculate difficulty-adjusted spawn times
+    const survivalSeconds = Math.floor((Date.now() - gameStartMs + survivalTimeMs) / 1000);
+    const difficultyFactor = Math.max(0.3, 1 - survivalSeconds / 120); // Gets harder over 2 minutes
+
+    const minSpawn = Math.floor(BASE_MIN_SPAWN_MS * difficultyFactor);
+    const maxSpawn = Math.floor(BASE_MAX_SPAWN_MS * difficultyFactor);
+
+    const waitMs = randomIntInclusive(minSpawn, maxSpawn);
     clearTimer(nextSpawnTimerId);
     nextSpawnTimerId = window.setTimeout(() => {
-      showMouse();
+      // Count actual alive cheeses
+      const aliveCheesesCount = cheeseLifePositions.filter(c => c.alive).length;
+
+      // Randomly decide to spawn cheese or mouse
+      // Only spawn cheese if player doesn't have all lives
+      if (aliveCheesesCount < MAX_LIVES && Math.random() < CHEESE_SPAWN_CHANCE) {
+        showCheese();
+      } else {
+        showMouse();
+      }
     }, waitMs);
   }
 
   function pickRandomMousePosition() {
-    const rect = $gameField.getBoundingClientRect();
+    const rect = $canvas.getBoundingClientRect();
     const w = rect.width;
     const h = rect.height;
 
     // Если поле ещё не проложилось — безопасно не спавним.
     if (!w || !h) return null;
 
+    // Calculate spawn line position
+    const spawnLineY = cheeseLifePositions.length > 0
+      ? cheeseLifePositions[0].yPx - SPAWN_LINE_MARGIN
+      : h - 150;
+
     const padding = 4;
     const minX = padding + HALF_HITBOX;
     const maxX = Math.max(minX, w - padding - HALF_HITBOX);
     const minY = padding + HALF_HITBOX;
-    const maxY = Math.max(minY, h - padding - HALF_HITBOX);
+    const maxY = Math.max(minY, spawnLineY - HALF_HITBOX); // Spawn only above line
 
     return {
       xPx: randomIntInclusive(Math.floor(minX), Math.floor(maxX)),
@@ -213,37 +545,211 @@
   function showMouse() {
     if (status !== 'running') return;
     if (!isOrientationAllowed()) return;
-    if (Date.now() >= endAtMs) return;
 
     const pos = pickRandomMousePosition();
     if (!pos) {
+      console.log('Failed to pick position');
       scheduleNextMouse();
       return;
     }
 
+    console.log('Spawning mouse at', pos);
     mousePos = pos;
-    $mouse.style.left = `${pos.xPx}px`;
-    $mouse.style.top = `${pos.yPx}px`;
     setMouseVisible(true);
 
-    const showMs = randomIntInclusive(1000, 2000);
-    clearTimer(mouseHideTimerId);
-    mouseHideTimerId = window.setTimeout(() => {
-      hideMouseAndReschedule();
-    }, showMs);
+    // Start escaping immediately!
+    animateMouseEscape();
   }
 
-  function hideMouseAndReschedule() {
-    if (status !== 'running') {
+  function animateMouseEscape() {
+    if (!mouseVisible || !mousePos) return;
+    if (cheeseLifePositions.length === 0) return; // No cheese to steal
+
+    mouseEscaping = true;
+    mouseHasGrabbedCheese = false;
+
+    // Pick a random alive cheese to target
+    const aliveCheeses = cheeseLifePositions
+      .map((cheese, index) => ({ cheese, index }))
+      .filter(item => item.cheese.alive);
+
+    if (aliveCheeses.length === 0) return; // No alive cheese
+
+    const randomAlive = aliveCheeses[Math.floor(Math.random() * aliveCheeses.length)];
+    mouseTargetCheeseIndex = randomAlive.index;
+    const targetCheese = randomAlive.cheese;
+
+    // Calculate difficulty-adjusted animation duration
+    const survivalSeconds = Math.floor((Date.now() - gameStartMs + survivalTimeMs) / 1000);
+    const difficultyFactor = Math.max(0.3, 1 - survivalSeconds / 120); // Gets harder over 2 minutes
+    const animationDuration = Math.floor(1500 * difficultyFactor); // 1500ms down to 450ms
+
+    // Minimal hitbox increase for faster mice
+    const speedRatio = 1500 / animationDuration;
+    const hitboxMultiplier = Math.pow(speedRatio, 0.3); // Extremely gentle growth
+    currentMouseHitbox = HALF_HITBOX * hitboxMultiplier;
+
+    const canvasRect = $canvas.getBoundingClientRect();
+
+    // Target: first to the cheese, then below canvas
+    const cheeseX = targetCheese.xPx;
+    const cheeseY = targetCheese.yPx;
+    const finalY = canvasRect.height + 100; // Go below canvas
+    const targetX = cheeseX;
+    const targetY = finalY;
+
+    // Random path complexity: 2-5 control points
+    const numControlPoints = Math.floor(Math.random() * 4) + 2; // 2, 3, 4, or 5
+    console.log(`Creating path with ${numControlPoints} control points`);
+
+    // Generate control points with random offsets
+    const controlPoints = [];
+    for (let i = 0; i < numControlPoints; i++) {
+      const ratio = (i + 1) / (numControlPoints + 1); // Distribute along path
+      const offsetScale = 0.3 - (i * 0.05); // Reduce randomness for later points
+      const offsetX = (Math.random() - 0.5) * canvasRect.width * offsetScale;
+      const offsetY = (Math.random() - 0.5) * canvasRect.height * (offsetScale * 0.5);
+
+      controlPoints.push({
+        xPx: mousePos.xPx + (cheeseX - mousePos.xPx) * ratio + offsetX,
+        yPx: mousePos.yPx + (cheeseY - mousePos.yPx) * ratio + offsetY
+      });
+    }
+
+    // Adjust last control point to ensure curve goes through cheese
+    // For simplicity, make the last control point close to cheese position
+    const lastIdx = controlPoints.length - 1;
+    controlPoints[lastIdx] = {
+      xPx: cheeseX + (Math.random() - 0.5) * 30,
+      yPx: cheeseY + (Math.random() - 0.5) * 30
+    };
+
+    // Store control points (pad to match expected structure)
+    mouseControlPoint1 = controlPoints[0];
+    mouseControlPoint2 = controlPoints[1] || controlPoints[0];
+    // Store all control points for rendering
+    window.mouseControlPoints = controlPoints;
+
+    // Store animation params for render loop
+    mouseTargetPos = { xPx: targetX, yPx: targetY };
+    mouseEscapeStartTime = Date.now();
+    mouseEscapeDuration = animationDuration;
+
+    // Check periodically if mouse has reached the cheese (at t = 0.6)
+    const checkInterval = setInterval(() => {
+      if (!mouseEscaping) {
+        clearInterval(checkInterval);
+        return;
+      }
+
+      const now = Date.now();
+      const elapsed = now - mouseEscapeStartTime;
+      const t = Math.min(1, elapsed / mouseEscapeDuration);
+
+      // Mouse reaches cheese at t = 0.6
+      if (!mouseHasGrabbedCheese && t >= 0.6) {
+        // Grabbed the cheese! Immediately mark as dead and reduce lives
+        mouseHasGrabbedCheese = true;
+        if (mouseTargetCheeseIndex >= 0 && mouseTargetCheeseIndex < cheeseLifePositions.length) {
+          const wasAlive = cheeseLifePositions[mouseTargetCheeseIndex].alive;
+          if (wasAlive) {
+            cheeseLifePositions[mouseTargetCheeseIndex].alive = false;
+            lives = Math.max(0, lives - 1);
+            console.log(`Mouse grabbed cheese! Lives remaining: ${lives}`);
+
+            // Check if game should end immediately
+            const aliveCheesesCount = cheeseLifePositions.filter(c => c.alive).length;
+            console.log(`t=0.6: Lives=${lives}, Alive cheeses=${aliveCheesesCount}`);
+            if (lives <= 0 || aliveCheesesCount === 0) {
+              console.log('Game Over at t=0.6 - No more lives!');
+              clearInterval(checkInterval);
+              mouseEscaping = false; // Stop animation
+              endGame();
+            }
+          }
+        }
+      }
+    }, 50);
+
+    // After animation completes, steal cheese
+    setTimeout(() => {
+      clearInterval(checkInterval);
+
+      // Check if game has already ended or mouse was caught
+      if (status !== 'running' || !mouseEscaping) return;
+
+      mouseEscaping = false;
       setMouseVisible(false);
+
+      // Steal the targeted cheese (this will check for game over)
+      stealCheese();
+
+      // Only schedule next mouse if game is still running
+      if (status === 'running') {
+        scheduleNextMouse();
+      }
+    }, animationDuration);
+  }
+
+  function stealCheese() {
+    // Mark the targeted cheese as not alive (if not already marked at t=0.6)
+    if (mouseTargetCheeseIndex >= 0 && mouseTargetCheeseIndex < cheeseLifePositions.length) {
+      const wasAlive = cheeseLifePositions[mouseTargetCheeseIndex].alive;
+
+      // Only reduce lives if this cheese was still alive (prevents double-counting)
+      // It might already be dead if caught at t=0.6
+      if (wasAlive) {
+        cheeseLifePositions[mouseTargetCheeseIndex].alive = false;
+        lives = Math.max(0, lives - 1);
+        console.log(`Animation completed - cheese stolen! Lives remaining: ${lives}`);
+      }
+    }
+
+    updateHud();
+
+    // Check if game should end (no more lives)
+    const aliveCheesesCount = cheeseLifePositions.filter(c => c.alive).length;
+    if (lives <= 0 || aliveCheesesCount === 0) {
+      console.log('Game Over - No more lives!');
+      endGame();
+    }
+  }
+
+  function showCheese() {
+    if (status !== 'running') return;
+    if (!isOrientationAllowed()) return;
+
+    const pos = pickRandomMousePosition();
+    if (!pos) {
+      console.log('Failed to pick cheese position');
       return;
     }
 
-    setMouseVisible(false);
+    console.log('Spawning cheese at', pos);
+    cheesePos = pos;
+    setCheeseVisible(true);
+
+    const showMs = randomIntInclusive(2000, 4000);
+    clearTimer(cheeseHideTimerId);
+    cheeseHideTimerId = window.setTimeout(() => {
+      hideCheeseAndReschedule();
+    }, showMs);
+  }
+
+  function hideCheeseAndReschedule() {
+    if (status !== 'running') {
+      setCheeseVisible(false);
+      return;
+    }
+
+    // Cheese just disappears, no penalty
+    setCheeseVisible(false);
+
+    // Schedule next spawn
     scheduleNextMouse();
   }
 
-  function startGame() {
+  function startGame(continueFromSaved = false) {
     updateOrientationOverlay();
     if (!isOrientationAllowed()) return;
 
@@ -253,10 +759,25 @@
     score = 0;
     bestScoreAtRoundStart = bestScore;
     status = 'running';
-    endAtMs = Date.now() + GAME_DURATION_MS;
-    pausedRemainingMs = 0;
+
+    if (continueFromSaved && savedLevel > 0) {
+      // Start from saved level
+      currentLevel = savedLevel;
+      const levelTimeSeconds = getLevelTimeSeconds(savedLevel);
+      survivalTimeMs = levelTimeSeconds * 1000;
+    } else {
+      // Start fresh
+      currentLevel = 0;
+      survivalTimeMs = 0;
+    }
+
+    gameStartMs = Date.now();
+    pausedSurvivalMs = 0;
+    lives = INITIAL_LIVES;
+    resetCheeseLifeStates(); // Reset cheese life states
 
     setMouseVisible(false);
+    setCheeseVisible(false);
 
     setOverlay($startOverlay, false);
     setOverlay($endOverlay, false);
@@ -271,12 +792,28 @@
 
     clearAllTimers();
     setMouseVisible(false);
+    setCheeseVisible(false);
 
     status = 'ended';
 
-    // Рекорд может обновляться “на лету” для HUD — гарантируем сохранение по окончании раунда.
+    // Calculate final survival time and level
+    const finalSurvivalMs = Date.now() - gameStartMs + survivalTimeMs;
+    const finalSurvivalSeconds = Math.floor(finalSurvivalMs / 1000);
+    const finalLevel = calculateLevel(finalSurvivalSeconds);
+
+    survivalTimeMs = finalSurvivalMs;
+    currentLevel = finalLevel;
+
+    // Save level progress if improved
+    if (finalLevel > savedLevel) {
+      saveLevelProgress(finalLevel);
+    }
+
+    // Save best score if improved
     if (bestScore > bestScoreAtRoundStart) saveBestScore();
 
+    $finalTime.textContent = String(finalSurvivalSeconds);
+    $finalLevel.textContent = String(finalLevel);
     $finalScore.textContent = String(score);
     $finalBest.textContent = String(bestScore);
 
@@ -287,48 +824,120 @@
   function resetToIdle() {
     clearAllTimers();
     setMouseVisible(false);
+    setCheeseVisible(false);
     hideCat();
 
     status = 'idle';
     score = 0;
-    pausedRemainingMs = 0;
+    lives = INITIAL_LIVES;
+    currentLevel = 0;
+    survivalTimeMs = 0;
+    pausedSurvivalMs = 0;
+    resetCheeseLifeStates(); // Reset cheese life states
 
     setOverlay($endOverlay, false);
     setOverlay($startOverlay, true);
+    updateStartOverlay();
     updateHud();
+  }
+
+  function pointInHitbox(clickX, clickY, targetX, targetY, hitboxRadius) {
+    return (
+      Math.abs(clickX - targetX) <= hitboxRadius &&
+      Math.abs(clickY - targetY) <= hitboxRadius
+    );
   }
 
   function pointInMouseHitbox(xPx, yPx) {
     if (!mouseVisible || !mousePos) return false;
-    return (
-      Math.abs(xPx - mousePos.xPx) <= HALF_HITBOX &&
-      Math.abs(yPx - mousePos.yPx) <= HALF_HITBOX
-    );
+    return pointInHitbox(xPx, yPx, mousePos.xPx, mousePos.yPx, currentMouseHitbox);
+  }
+
+  function pointInCheeseHitbox(xPx, yPx) {
+    if (!cheeseVisible || !cheesePos) return false;
+    return pointInHitbox(xPx, yPx, cheesePos.xPx, cheesePos.yPx, HALF_HITBOX);
   }
 
   function onPointerDown(ev) {
     if (status !== 'running') return;
     if (!isOrientationAllowed()) return;
 
-    const rect = $gameField.getBoundingClientRect();
+    const rect = $canvas.getBoundingClientRect();
     const xPx = ev.clientX - rect.left;
     const yPx = ev.clientY - rect.top;
 
     // Кот всегда один: просто переносим в последнюю точку.
     setCatVisibleAt(xPx, yPx);
 
-    if (pointInMouseHitbox(xPx, yPx)) {
-      score += 1;
-      if (score > bestScore) {
-        // Можно обновлять рекорд сразу, но сохраняем только в конце раунда.
-        bestScore = score;
-      }
-      updateHud();
+    // Check if caught escaping mouse (use bezier curve interpolated position)
+    if (mouseEscaping && mouseVisible) {
+      let currentMouseX = mousePos.xPx;
+      let currentMouseY = mousePos.yPx;
 
-      // Мышь поймана: прячем немедленно и запускаем следующий цикл.
-      clearTimer(mouseHideTimerId);
-      mouseHideTimerId = null;
-      setMouseVisible(false);
+      if (mouseTargetPos && window.mouseControlPoints) {
+        const now = Date.now();
+        const elapsed = now - mouseEscapeStartTime;
+        const t = Math.min(1, elapsed / mouseEscapeDuration);
+
+        // Generalized Bezier curve (matches render loop)
+        const points = [mousePos, ...window.mouseControlPoints, mouseTargetPos];
+
+        function bezierPoint(pts, t) {
+          if (pts.length === 1) return pts[0];
+          const newPts = [];
+          for (let i = 0; i < pts.length - 1; i++) {
+            newPts.push({
+              xPx: (1 - t) * pts[i].xPx + t * pts[i + 1].xPx,
+              yPx: (1 - t) * pts[i].yPx + t * pts[i + 1].yPx
+            });
+          }
+          return bezierPoint(newPts, t);
+        }
+
+        const pos = bezierPoint(points, t);
+        currentMouseX = pos.xPx;
+        currentMouseY = pos.yPx;
+      }
+
+      if (pointInHitbox(xPx, yPx, currentMouseX, currentMouseY, currentMouseHitbox)) {
+        score += 1;
+        if (score > bestScore) {
+          bestScore = score;
+        }
+        updateHud();
+
+        // Caught the escaping mouse!
+        mouseEscaping = false;
+        setMouseVisible(false);
+        scheduleNextMouse();
+        ev.preventDefault?.();
+        return;
+      }
+    }
+
+    // Check if caught cheese (restore life)
+    if (pointInCheeseHitbox(xPx, yPx)) {
+      // Count actual alive cheeses
+      const aliveCheesesCount = cheeseLifePositions.filter(c => c.alive).length;
+
+      if (aliveCheesesCount < MAX_LIVES) {
+        // Find first dead cheese position and restore it
+        for (let i = 0; i < cheeseLifePositions.length; i++) {
+          if (!cheeseLifePositions[i].alive) {
+            cheeseLifePositions[i].alive = true;
+            lives++;
+            console.log(`Restored cheese at position ${i}, lives now: ${lives}`);
+            break;
+          }
+        }
+
+        updateHud();
+      }
+
+      // Cheese caught: hide immediately and schedule next spawn
+      clearTimer(cheeseHideTimerId);
+      cheeseHideTimerId = null;
+      setCheeseVisible(false);
       scheduleNextMouse();
     }
 
@@ -336,23 +945,37 @@
   }
 
   function bindEvents() {
-    $startBtn.addEventListener('click', () => startGame());
+    $startBtn.addEventListener('click', () => startGame(false));
+    $continueBtn.addEventListener('click', () => startGame(true));
     $restartBtn.addEventListener('click', () => {
       resetToIdle();
-      startGame();
+      updateStartOverlay();
+      startGame(false);
     });
 
-    // Pointer Events (предпочтительно)
-    $gameField.addEventListener('pointerdown', onPointerDown, { passive: false });
+    // Prevent double-tap zoom on iOS Safari
+    let lastTouchEnd = 0;
+    document.addEventListener('touchend', (event) => {
+      const now = Date.now();
+      if (now - lastTouchEnd <= 300) {
+        event.preventDefault();
+      }
+      lastTouchEnd = now;
+    }, { passive: false });
+
+    // Pointer Events on canvas
+    $canvas.addEventListener('pointerdown', onPointerDown, { passive: false });
 
     window.addEventListener('resize', () => {
+      setupCanvas(); // Resize canvas
       updateOrientationOverlay();
 
-      // При ресайзе безопасно скрыть мышь и продолжить цикл.
+      // При ресайзе безопасно скрыть мышь и сыр и продолжить цикл.
       if (status === 'running') {
         setMouseVisible(false);
-        clearTimer(mouseHideTimerId);
-        mouseHideTimerId = null;
+        setCheeseVisible(false);
+        clearTimer(cheeseHideTimerId);
+        cheeseHideTimerId = null;
         clearTimer(nextSpawnTimerId);
         nextSpawnTimerId = null;
         scheduleNextMouse();
@@ -365,18 +988,23 @@
   }
 
   function init() {
+    setupCanvas();
     loadBestScore();
+    loadSavedLevel();
+    updateStartOverlay();
     updateHud();
     bindEvents();
     updateOrientationOverlay();
+    render(); // Start render loop
 
     // Если вкладка скрыта — поставим игру на паузу (без усложнения таймингов мыши).
     document.addEventListener('visibilitychange', () => {
       if (document.visibilityState !== 'visible') {
         if (status === 'running') {
-          pausedRemainingMs = Math.max(0, endAtMs - Date.now());
+          pausedSurvivalMs = Date.now() - gameStartMs;
           clearAllTimers();
           setMouseVisible(false);
+          setCheeseVisible(false);
           status = 'paused';
           updateHud();
         }
