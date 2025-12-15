@@ -190,13 +190,6 @@
         angle = Math.atan2(dy, dx) - Math.PI / 2; // Rotate 90° counter-clockwise
       }
 
-      // Debug: Draw hitbox circle
-      ctx.strokeStyle = 'rgba(255, 0, 0, 0.3)';
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.arc(drawX, drawY, currentMouseHitbox, 0, Math.PI * 2);
-      ctx.stroke();
-
       // Draw emoji with rotation
       ctx.save();
       ctx.translate(drawX, drawY);
@@ -205,32 +198,14 @@
       ctx.fillStyle = '#000';
       ctx.fillText('🐭', 0, 0);
       ctx.restore();
-
-      // Debug: Draw position text
-      ctx.font = '12px Arial';
-      ctx.fillStyle = '#fff';
-      ctx.fillText(`${Math.round(drawX)},${Math.round(drawY)}`, drawX, drawY + 50);
     }
 
     // Draw cheese if visible
     if (cheeseVisible && cheesePos) {
       try {
-        // Debug: Draw hitbox circle for cheese
-        ctx.strokeStyle = 'rgba(0, 255, 0, 0.3)';
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.arc(cheesePos.xPx, cheesePos.yPx, HALF_HITBOX, 0, Math.PI * 2);
-        ctx.stroke();
-
-        // Draw emoji
         ctx.font = `${CHEESE_SIZE}px Arial, "Apple Color Emoji", "Segoe UI Emoji"`;
         ctx.fillStyle = '#000';
         ctx.fillText('🧀', cheesePos.xPx, cheesePos.yPx);
-
-        // Debug: Draw position text
-        ctx.font = '12px Arial';
-        ctx.fillStyle = '#0f0';
-        ctx.fillText(`C:${Math.round(cheesePos.xPx)},${Math.round(cheesePos.yPx)}`, cheesePos.xPx, cheesePos.yPx + 40);
       } catch (e) {
         console.error('Cheese render error:', e);
       }
@@ -265,15 +240,6 @@
     ctx.fillStyle = '#000';
     for (let i = 0; i < cheeseLifePositions.length; i++) {
       const pos = cheeseLifePositions[i];
-
-      // Debug: Draw target indicator for the cheese being targeted
-      if (mouseTargetCheeseIndex === i && mouseEscaping) {
-        ctx.strokeStyle = 'rgba(255, 255, 0, 0.6)';
-        ctx.lineWidth = 3;
-        ctx.beginPath();
-        ctx.arc(pos.xPx, pos.yPx, 35, 0, Math.PI * 2);
-        ctx.stroke();
-      }
 
       // Skip if not alive
       if (!pos.alive) continue;
