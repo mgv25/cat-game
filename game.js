@@ -21,7 +21,6 @@
   const $survivalTime = document.getElementById('survivalTime');
   const $level = document.getElementById('level');
   const $lives = document.getElementById('lives');
-  const $bestScoreHud = document.getElementById('bestScoreHud');
   const $savedLevelHud = document.getElementById('savedLevelHud');
 
   const $gameField = document.getElementById('gameField');
@@ -31,6 +30,7 @@
   const $startOverlay = document.getElementById('startOverlay');
   const $endOverlay = document.getElementById('endOverlay');
   const $rotateOverlay = document.getElementById('rotateOverlay');
+  const $pauseOverlay = document.getElementById('pauseOverlay');
 
   const $startBtn = document.getElementById('startBtn');
   const $continueBtn = document.getElementById('continueBtn');
@@ -54,8 +54,13 @@
   const $finalScore = document.getElementById('finalScore');
   const $finalBest = document.getElementById('finalBest');
 
+  const $pauseBtn = document.getElementById('pauseBtn');
+  const $resumeBtn = document.getElementById('resumeBtn');
+  const $endGameBtn = document.getElementById('endGameBtn');
+
   /** @type {'idle'|'running'|'paused'|'ended'} */
   let status = 'idle';
+  let isUserPaused = false; // Track if pause is from user action vs orientation
 
   let score = 0;
   let bestScore = 0;
@@ -653,7 +658,6 @@
   function updateHud() {
     $score.textContent = String(score);
     $level.textContent = String(currentLevel);
-    if ($bestScoreHud) $bestScoreHud.textContent = String(bestScore);
     if ($savedLevelHud) $savedLevelHud.textContent = String(savedLevel);
 
     let survivalSeconds = 0;
@@ -690,6 +694,7 @@
 
   function pauseGameForOrientation() {
     if (status !== 'running') return;
+    if (isUserPaused) return; // Don't override user pause
     pausedSurvivalMs = Date.now() - gameStartMs;
     clearAllTimers();
     setMouseVisible(false);
@@ -701,6 +706,7 @@
   function resumeGameAfterOrientation() {
     if (status !== 'paused') return;
     if (!isOrientationAllowed()) return;
+    if (isUserPaused) return; // Don't resume if user paused
 
     survivalTimeMs = survivalTimeMs + pausedSurvivalMs;
     gameStartMs = Date.now();
@@ -709,6 +715,45 @@
     startTick();
     scheduleNextMouse();
     updateHud();
+  }
+
+  function pauseGameByUser() {
+    if (status !== 'running') return;
+    isUserPaused = true;
+    pausedSurvivalMs = Date.now() - gameStartMs;
+    clearAllTimers();
+    setMouseVisible(false);
+    setCheeseVisible(false);
+    status = 'paused';
+    if ($pauseBtn) $pauseBtn.style.display = 'none';
+    updateHud();
+    setOverlay($pauseOverlay, true);
+  }
+
+  function resumeGameByUser() {
+    if (status !== 'paused') return;
+    if (!isUserPaused) return;
+    if (!isOrientationAllowed()) return;
+
+    isUserPaused = false;
+    survivalTimeMs = survivalTimeMs + pausedSurvivalMs;
+    gameStartMs = Date.now();
+    pausedSurvivalMs = 0;
+    status = 'running';
+    if ($pauseBtn) $pauseBtn.style.display = 'block';
+    setOverlay($pauseOverlay, false);
+    startTick();
+    scheduleNextMouse();
+    updateHud();
+  }
+
+  function endGameFromPause() {
+    if (status !== 'paused') return;
+    if (!isUserPaused) return;
+
+    isUserPaused = false;
+    setOverlay($pauseOverlay, false);
+    endGame();
   }
 
   function updateOrientationOverlay() {
@@ -1052,6 +1097,7 @@
 
     gameStartMs = Date.now();
     pausedSurvivalMs = 0;
+    isUserPaused = false;
     lives = INITIAL_LIVES;
     resetCheeseLifeStates(); // Reset cheese life states
 
@@ -1060,8 +1106,10 @@
 
     setOverlay($startOverlay, false);
     setOverlay($endOverlay, false);
+    setOverlay($pauseOverlay, false);
     closeHistory();
 
+    if ($pauseBtn) $pauseBtn.style.display = 'block';
     updateHud();
     startTick();
     scheduleNextMouse();
@@ -1110,6 +1158,7 @@
 
     updateHud();
     updateEndOverlay();
+    if ($pauseBtn) $pauseBtn.style.display = 'none';
     setOverlay($endOverlay, true);
   }
 
@@ -1125,10 +1174,13 @@
     currentLevel = 0;
     survivalTimeMs = 0;
     pausedSurvivalMs = 0;
+    isUserPaused = false;
     resetCheeseLifeStates(); // Reset cheese life states
 
     setOverlay($endOverlay, false);
+    setOverlay($pauseOverlay, false);
     setOverlay($startOverlay, true);
+    if ($pauseBtn) $pauseBtn.style.display = 'none';
     updateStartOverlay();
     closeHistory();
     updateHud();
@@ -1249,6 +1301,10 @@
     $restartBtn.addEventListener('click', () => startGame(false));
     if ($continueBtnEnd) $continueBtnEnd.addEventListener('click', () => startGame(true));
 
+    if ($pauseBtn) $pauseBtn.addEventListener('click', () => pauseGameByUser());
+    if ($resumeBtn) $resumeBtn.addEventListener('click', () => resumeGameByUser());
+    if ($endGameBtn) $endGameBtn.addEventListener('click', () => endGameFromPause());
+
     if ($historyBtnStart) $historyBtnStart.addEventListener('click', () => openHistory());
     if ($historyBtnEnd) $historyBtnEnd.addEventListener('click', () => openHistory());
     if ($historyCloseBtn) $historyCloseBtn.addEventListener('click', () => closeHistory());
@@ -1301,24 +1357,27 @@
     updateHud();
     bindEvents();
     updateOrientationOverlay();
+    if ($pauseBtn) $pauseBtn.style.display = 'none';
     render(); // Start render loop
 
     // Если вкладка скрыта — поставим игру на паузу (без усложнения таймингов мыши).
     document.addEventListener('visibilitychange', () => {
       if (document.visibilityState !== 'visible') {
         if (status === 'running') {
-          pausedSurvivalMs = Date.now() - gameStartMs;
-          clearAllTimers();
-          setMouseVisible(false);
-          setCheeseVisible(false);
-          status = 'paused';
-          updateHud();
+          if (!isUserPaused) {
+            pausedSurvivalMs = Date.now() - gameStartMs;
+            clearAllTimers();
+            setMouseVisible(false);
+            setCheeseVisible(false);
+            status = 'paused';
+            updateHud();
+          }
         }
         return;
       }
 
-      // Возврат: возобновим, только если ориентация разрешена.
-      if (status === 'paused') {
+      // Возврат: возобновим, только если ориентация разрешена и не пользовательская пауза.
+      if (status === 'paused' && !isUserPaused) {
         resumeGameAfterOrientation();
       }
     });

@@ -28,8 +28,7 @@
         <div class="hudCardValue hudLives" id="lives">🧀🧀🧀🧀🧀</div>
       </div>
       <div class="hudCard hudCardSmall">
-        <div class="hudCardLabel">Рекорд</div>
-        <div class="hudCardValue" id="bestScoreHud">0</div>
+        <button id="pauseBtn" class="btnPause" type="button">Стоп игра</button>
       </div>
       <div class="hudCard hudCardSmall">
         <div class="hudCardLabel">Прогресс</div>
@@ -83,6 +82,14 @@
             <button id="historyCloseBtn" class="btn btnSmall" type="button">Закрыть</button>
           </div>
           <div id="historyList" class="historyList" aria-label="Последние игры"></div>
+        </div>
+      </section>
+
+      <section id="pauseOverlay" class="overlay hidden" aria-label="Игра на паузе" role="dialog" aria-modal="true">
+        <div class="overlayCard">
+          <h2 class="title">Игра на паузе</h2>
+          <button id="resumeBtn" class="btn" type="button">Продолжить</button>
+          <button id="endGameBtn" class="btn btnDanger" type="button" style="margin-top: 8px;">Закончить игру</button>
         </div>
       </section>
     </main>
