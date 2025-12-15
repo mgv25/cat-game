@@ -5,6 +5,7 @@
   const SAVED_LEVEL_KEY = 'catMouseSavedLevel';
   const HISTORY_KEY = 'catMouseHistoryV2';
   const LEVEL_MODE_KEY = 'catMouseLevelMode';
+  const SOUND_ENABLED_KEY = 'catMouseSoundEnabled';
   const HISTORY_LIMIT = 50;
   const HITBOX_SIZE_PX = 60; // Base hitbox size (reduced for difficulty)
   const HALF_HITBOX = HITBOX_SIZE_PX / 2;
@@ -85,6 +86,7 @@
   let recordLevelShown = false; // Track if level record was already shown this round
   let levelRecordBeaten = false; // Track if level record was beaten in current game
   let levelMode = 'fixed'; // 'fibonacci' or 'fixed' (10 seconds per level) - default is 'fixed'
+  let soundEnabled = true; // Sound enabled by default
   let gameStartMs = 0;
   let survivalTimeMs = 0;
   let pausedSurvivalMs = 0;
@@ -263,21 +265,25 @@
   }
 
   function playHitSound() {
+    if (!soundEnabled) return;
     const ok = tryPlayAudio(hitAudio);
     if (!ok) playTone({ freqHz: 880, durationMs: 90, type: 'triangle', gain: 0.04 });
   }
 
   function playMissSound() {
+    if (!soundEnabled) return;
     const ok = tryPlayAudio(missAudio);
     if (!ok) playTone({ freqHz: 220, durationMs: 110, type: 'sawtooth', gain: 0.03 });
   }
 
   function playCheeseSound() {
+    if (!soundEnabled) return;
     const ok = tryPlayAudio(cheeseAudio);
     if (!ok) playTone({ freqHz: 660, durationMs: 90, type: 'square', gain: 0.03 });
   }
 
   function playRecordSound() {
+    if (!soundEnabled) return;
     const ok = tryPlayAudio(recordAudio);
     if (!ok) playTone({ freqHz: 880, durationMs: 200, type: 'sine', gain: 0.05 });
   }
@@ -370,14 +376,28 @@
     levelMode = 'fixed';
     saveLevelMode('fixed');
     
+    // Reset sound to default (enabled)
+    soundEnabled = true;
+    saveSoundEnabled(true);
+    
     // Update segmented control UI
     const segmentButtons = document.querySelectorAll('.segmentButton');
     segmentButtons.forEach(button => {
+      const setting = button.getAttribute('data-setting');
       const value = button.getAttribute('data-value');
-      if (value === 'fixed') {
-        button.classList.add('active');
-      } else {
-        button.classList.remove('active');
+      
+      if (setting === 'levelMode') {
+        if (value === 'fixed') {
+          button.classList.add('active');
+        } else {
+          button.classList.remove('active');
+        }
+      } else if (setting === 'sound') {
+        if (value === 'on') {
+          button.classList.add('active');
+        } else {
+          button.classList.remove('active');
+        }
       }
     });
   }
@@ -385,26 +405,49 @@
   function initSegmentedControl() {
     const segmentButtons = document.querySelectorAll('.segmentButton');
     
-    // Set initial state based on loaded mode
+    // Set initial state based on loaded settings
     segmentButtons.forEach(button => {
+      const setting = button.getAttribute('data-setting');
       const value = button.getAttribute('data-value');
-      if (value === levelMode) {
-        button.classList.add('active');
-      } else {
-        button.classList.remove('active');
+      
+      if (setting === 'levelMode') {
+        if (value === levelMode) {
+          button.classList.add('active');
+        } else {
+          button.classList.remove('active');
+        }
+      } else if (setting === 'sound') {
+        const shouldBeActive = (value === 'on' && soundEnabled) || (value === 'off' && !soundEnabled);
+        if (shouldBeActive) {
+          button.classList.add('active');
+        } else {
+          button.classList.remove('active');
+        }
       }
     });
     
     // Add click handlers
     segmentButtons.forEach(button => {
       button.addEventListener('click', () => {
+        const setting = button.getAttribute('data-setting');
         const value = button.getAttribute('data-value');
-        // Remove active class from all buttons
-        segmentButtons.forEach(btn => btn.classList.remove('active'));
+        
+        // Find all buttons in the same segmented control (same setting)
+        const sameSettingButtons = Array.from(segmentButtons).filter(btn => 
+          btn.getAttribute('data-setting') === setting
+        );
+        
+        // Remove active class from all buttons in the same control
+        sameSettingButtons.forEach(btn => btn.classList.remove('active'));
         // Add active class to clicked button
         button.classList.add('active');
-        // Save the selected mode
-        saveLevelMode(value);
+        
+        // Save the selected setting
+        if (setting === 'levelMode') {
+          saveLevelMode(value);
+        } else if (setting === 'sound') {
+          saveSoundEnabled(value === 'on');
+        }
       });
     });
   }
@@ -744,6 +787,28 @@
     try {
       window.localStorage.setItem(LEVEL_MODE_KEY, mode);
       levelMode = mode;
+    } catch {
+      // ignore
+    }
+  }
+
+  function loadSoundEnabled() {
+    try {
+      const raw = window.localStorage.getItem(SOUND_ENABLED_KEY);
+      if (raw === 'false') {
+        soundEnabled = false;
+      } else {
+        soundEnabled = true; // Default: enabled
+      }
+    } catch {
+      soundEnabled = true; // Default: enabled
+    }
+  }
+
+  function saveSoundEnabled(enabled) {
+    try {
+      window.localStorage.setItem(SOUND_ENABLED_KEY, String(enabled));
+      soundEnabled = enabled;
     } catch {
       // ignore
     }
@@ -1855,6 +1920,7 @@
     loadBestScore();
     loadSavedLevel();
     loadLevelMode();
+    loadSoundEnabled();
     loadHistory();
     updateStartOverlay();
     updateHud();
