@@ -770,7 +770,7 @@
     mouseEscapeStartTime = Date.now();
     mouseEscapeDuration = animationDuration;
 
-    // Check periodically if mouse has reached the cheese (at t = 0.6)
+    // Check periodically if mouse hitbox reached the cheese.
     const checkInterval = setInterval(() => {
       if (!mouseEscaping) {
         clearInterval(checkInterval);
@@ -781,28 +781,56 @@
       const elapsed = now - mouseEscapeStartTime;
       const t = Math.min(1, elapsed / mouseEscapeDuration);
 
-      // Mouse reaches cheese at t = 0.6
-      if (!mouseHasGrabbedCheese && t >= 0.6) {
+      // Determine current mouse position on the same curve as in render().
+      let currentMouseX = mousePos.xPx;
+      let currentMouseY = mousePos.yPx;
+      if (mouseTargetPos && window.mouseControlPoints) {
+        const points = [mousePos, ...window.mouseControlPoints, mouseTargetPos];
+
+        function bezierPoint(pts, t) {
+          if (pts.length === 1) return pts[0];
+          const newPts = [];
+          for (let i = 0; i < pts.length - 1; i++) {
+            newPts.push({
+              xPx: (1 - t) * pts[i].xPx + t * pts[i + 1].xPx,
+              yPx: (1 - t) * pts[i].yPx + t * pts[i + 1].yPx
+            });
+          }
+          return bezierPoint(newPts, t);
+        }
+
+        const pos = bezierPoint(points, t);
+        currentMouseX = pos.xPx;
+        currentMouseY = pos.yPx;
+      }
+
+      // When mouse hitbox touches the targeted cheese emoji -> cheese is eaten.
+      // Use a simple AABB overlap test: mouse hitbox radius + cheese half-size.
+      const cheeseHalf = CHEESE_LIFE_SIZE / 2;
+      const targetCheese = (mouseTargetCheeseIndex >= 0 && mouseTargetCheeseIndex < cheeseLifePositions.length)
+        ? cheeseLifePositions[mouseTargetCheeseIndex]
+        : null;
+
+      const hitCheese = !!(targetCheese && targetCheese.alive) && (
+        Math.abs(currentMouseX - targetCheese.xPx) <= (currentMouseHitbox + cheeseHalf) &&
+        Math.abs(currentMouseY - targetCheese.yPx) <= (currentMouseHitbox + cheeseHalf)
+      );
+
+      if (!mouseHasGrabbedCheese && hitCheese) {
         // Grabbed the cheese! Immediately mark as dead and reduce lives
         mouseHasGrabbedCheese = true;
-        if (mouseTargetCheeseIndex >= 0 && mouseTargetCheeseIndex < cheeseLifePositions.length) {
-          const wasAlive = cheeseLifePositions[mouseTargetCheeseIndex].alive;
-          if (wasAlive) {
-            cheeseLifePositions[mouseTargetCheeseIndex].alive = false;
-            lives = Math.max(0, lives - 1);
-            playMissSound();
-            console.log(`Mouse grabbed cheese! Lives remaining: ${lives}`);
+        targetCheese.alive = false;
+        lives = Math.max(0, lives - 1);
+        playMissSound();
+        console.log(`Mouse grabbed cheese! Lives remaining: ${lives}`);
 
-            // Check if game should end immediately
-            const aliveCheesesCount = cheeseLifePositions.filter(c => c.alive).length;
-            console.log(`t=0.6: Lives=${lives}, Alive cheeses=${aliveCheesesCount}`);
-            if (lives <= 0 || aliveCheesesCount === 0) {
-              console.log('Game Over at t=0.6 - No more lives!');
-              clearInterval(checkInterval);
-              mouseEscaping = false; // Stop animation
-              endGame();
-            }
-          }
+        // Check if game should end immediately
+        const aliveCheesesCount = cheeseLifePositions.filter(c => c.alive).length;
+        if (lives <= 0 || aliveCheesesCount === 0) {
+          console.log('Game Over - No more lives!');
+          clearInterval(checkInterval);
+          mouseEscaping = false; // Stop animation
+          endGame();
         }
       }
     }, 50);
@@ -828,12 +856,12 @@
   }
 
   function stealCheese() {
-    // Mark the targeted cheese as not alive (if not already marked at t=0.6)
+    // Mark the targeted cheese as not alive (if not already marked during collision)
     if (mouseTargetCheeseIndex >= 0 && mouseTargetCheeseIndex < cheeseLifePositions.length) {
       const wasAlive = cheeseLifePositions[mouseTargetCheeseIndex].alive;
 
       // Only reduce lives if this cheese was still alive (prevents double-counting)
-      // It might already be dead if caught at t=0.6
+      // It might already be dead if mouse already collided with it earlier.
       if (wasAlive) {
         cheeseLifePositions[mouseTargetCheeseIndex].alive = false;
         lives = Math.max(0, lives - 1);
