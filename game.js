@@ -848,6 +848,28 @@
     return level;
   }
 
+  // Get mouse lifespan in milliseconds for a given level in fixed mode
+  function getMouseLifespanMs(level) {
+    const BASE_LIFESPAN_MS = 1500; // Starting lifespan at level 1
+    
+    if (level <= 1) return BASE_LIFESPAN_MS;
+    
+    let lifespan = BASE_LIFESPAN_MS;
+    
+    // Calculate lifespan based on level progression
+    for (let i = 2; i <= level; i++) {
+      if (i <= 5) {
+        // Levels 2-5: decrease by 10% from previous level
+        lifespan = lifespan * 0.9;
+      } else {
+        // Level 6+: decrease by 5% from previous level
+        lifespan = lifespan * 0.95;
+      }
+    }
+    
+    return Math.floor(lifespan);
+  }
+
   function setOverlay($el, isVisible) {
     $el.classList.toggle('hidden', !isVisible);
   }
@@ -1057,8 +1079,17 @@
     if (!isOrientationAllowed()) return;
 
     // Calculate difficulty-adjusted spawn times
-    const survivalSeconds = Math.floor((Date.now() - gameStartMs + survivalTimeMs) / 1000);
-    const difficultyFactor = Math.max(0.3, 1 - survivalSeconds / 120); // Gets harder over 2 minutes
+    let difficultyFactor;
+    
+    if (levelMode === 'fixed') {
+      // Fixed mode: spawn rate based on current level
+      // Use same progression as mouse lifespan for consistency
+      difficultyFactor = getMouseLifespanMs(currentLevel) / 1500;
+    } else {
+      // Fibonacci mode: spawn rate based on survival time (old logic)
+      const survivalSeconds = Math.floor((Date.now() - gameStartMs + survivalTimeMs) / 1000);
+      difficultyFactor = Math.max(0.3, 1 - survivalSeconds / 120); // Gets harder over 2 minutes
+    }
 
     const minSpawn = Math.floor(BASE_MIN_SPAWN_MS * difficultyFactor);
     const maxSpawn = Math.floor(BASE_MAX_SPAWN_MS * difficultyFactor);
@@ -1144,9 +1175,17 @@
     const targetCheese = randomAlive.cheese;
 
     // Calculate difficulty-adjusted animation duration
-    const survivalSeconds = Math.floor((Date.now() - gameStartMs + survivalTimeMs) / 1000);
-    const difficultyFactor = Math.max(0.3, 1 - survivalSeconds / 120); // Gets harder over 2 minutes
-    const animationDuration = Math.floor(1500 * difficultyFactor); // 1500ms down to 450ms
+    let animationDuration;
+    
+    if (levelMode === 'fixed') {
+      // Fixed mode: duration based on current level
+      animationDuration = getMouseLifespanMs(currentLevel);
+    } else {
+      // Fibonacci mode: duration based on survival time (old logic)
+      const survivalSeconds = Math.floor((Date.now() - gameStartMs + survivalTimeMs) / 1000);
+      const difficultyFactor = Math.max(0.3, 1 - survivalSeconds / 120); // Gets harder over 2 minutes
+      animationDuration = Math.floor(1500 * difficultyFactor); // 1500ms down to 450ms
+    }
 
     // Minimal hitbox increase for faster mice
     const speedRatio = 1500 / animationDuration;
@@ -1346,9 +1385,18 @@
     const targetCheese = randomAlive.cheese;
 
     // Calculate difficulty-adjusted animation duration (1.5x faster than mouse)
-    const survivalSeconds = Math.floor((Date.now() - gameStartMs + survivalTimeMs) / 1000);
-    const difficultyFactor = Math.max(0.3, 1 - survivalSeconds / 120);
-    const baseAnimationDuration = Math.floor(1500 * difficultyFactor);
+    let baseAnimationDuration;
+    
+    if (levelMode === 'fixed') {
+      // Fixed mode: duration based on current level
+      baseAnimationDuration = getMouseLifespanMs(currentLevel);
+    } else {
+      // Fibonacci mode: duration based on survival time (old logic)
+      const survivalSeconds = Math.floor((Date.now() - gameStartMs + survivalTimeMs) / 1000);
+      const difficultyFactor = Math.max(0.3, 1 - survivalSeconds / 120);
+      baseAnimationDuration = Math.floor(1500 * difficultyFactor);
+    }
+    
     const animationDuration = Math.floor(baseAnimationDuration / 1.5); // 1.5x faster
 
     // Minimal hitbox increase for faster rats
