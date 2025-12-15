@@ -20,7 +20,7 @@
   const $score = document.getElementById('score');
   const $survivalTime = document.getElementById('survivalTime');
   const $level = document.getElementById('level');
-  const $lives = document.getElementById('lives');
+  const $bestScoreHud = document.getElementById('bestScoreHud');
   const $savedLevelHud = document.getElementById('savedLevelHud');
 
   const $gameField = document.getElementById('gameField');
@@ -659,6 +659,7 @@
     $score.textContent = String(score);
     $level.textContent = String(currentLevel);
     if ($savedLevelHud) $savedLevelHud.textContent = String(savedLevel);
+    if ($bestScoreHud) $bestScoreHud.textContent = String(bestScore);
 
     let survivalSeconds = 0;
     if (status === 'running') {
@@ -671,12 +672,6 @@
     }
     $survivalTime.textContent = String(survivalSeconds);
     $level.textContent = String(currentLevel);
-
-    if ($lives) {
-      const aliveCheesesCount = cheeseLifePositions.filter(c => c.alive).length;
-      const count = clamp(aliveCheesesCount, 0, MAX_LIVES);
-      $lives.textContent = '🧀'.repeat(count) + '▫️'.repeat(Math.max(0, MAX_LIVES - count));
-    }
   }
 
   function isPhoneLike() {
