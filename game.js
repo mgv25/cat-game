@@ -414,7 +414,7 @@
           ctx.translate(e.xPx, e.yPx + yOffset);
           ctx.scale(scale, scale);
           ctx.font = `28px Arial, "Apple Color Emoji", "Segoe UI Emoji"`;
-          ctx.fillStyle = 'rgba(255, 247, 190, 0.98)';
+          ctx.fillStyle = 'rgba(150, 255, 180, 0.98)'; // Green color matching app theme
           ctx.fillText(e.text || '+1', 0, 0);
           ctx.restore();
         } else if (e.type === 'record') {
