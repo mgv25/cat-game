@@ -17,10 +17,13 @@
   const MISS_SOUND_SRC = './assets/sounds/miss.mp3';
   const CHEESE_SOUND_SRC = './assets/sounds/cheese.mp3';
   const RECORD_SOUND_SRC = './assets/sounds/record.mp3';
+  const LIZARD_SOUND_SRC = './assets/sounds/lizard.mp3';
   const MOUSE_EMOJI = '🐁';
   const RAT_EMOJI = '🐀';
+  const LIZARD_EMOJI = '🦎';
   const CAT_EMOJI = '🐈';
   const RAT_SPAWN_CHANCE = 0.15; // 15% chance to spawn rat instead of mouse
+  const LIZARD_SPAWN_CHANCE = 0.10; // 10% chance to spawn lizard
 
   const $score = document.getElementById('score');
   const $survivalTime = document.getElementById('survivalTime');
@@ -115,6 +118,15 @@
   let ratTargetCheeseIndex = -1;
   let ratHasGrabbedCheese = false;
   
+  let lizardVisible = false;
+  /** @type {{xPx:number, yPx:number} | null} */
+  let lizardPos = null;
+  let lizardEscaping = false;
+  let lizardTargetPos = null;
+  let lizardEscapeStartTime = 0;
+  let lizardEscapeDuration = 0;
+  let currentLizardHitbox = HALF_HITBOX;
+  
   let cheeseVisible = false;
   /** @type {{xPx:number, yPx:number} | null} */
   let cheesePos = null;
@@ -123,12 +135,13 @@
   let catPos = null;
 
   // Transient hit effects (puff + floating score) rendered on canvas
-  /** @type {Array<{type:'puff'|'score'|'record', xPx:number, yPx:number, text?:string, startMs:number, durationMs:number}>} */
+  /** @type {Array<{type:'puff'|'score'|'record'|'penalty', xPx:number, yPx:number, text?:string, startMs:number, durationMs:number}>} */
   let effects = [];
 
   // Canvas emoji sizes
   const MOUSE_SIZE = 32;
   const RAT_SIZE = 32;
+  const LIZARD_SIZE = 32;
   const CHEESE_SIZE = 52;
   const CHEESE_LIFE_SIZE = 40;
   const CAT_SIZE = 56;
@@ -154,14 +167,17 @@
   const missAudio = new Audio(MISS_SOUND_SRC);
   const cheeseAudio = new Audio(CHEESE_SOUND_SRC);
   const recordAudio = new Audio(RECORD_SOUND_SRC);
+  const lizardAudio = new Audio(LIZARD_SOUND_SRC);
   hitAudio.preload = 'auto';
   missAudio.preload = 'auto';
   cheeseAudio.preload = 'auto';
   recordAudio.preload = 'auto';
+  lizardAudio.preload = 'auto';
   hitAudio.volume = 0.7;
   missAudio.volume = 0.6;
   cheeseAudio.volume = 0.7;
   recordAudio.volume = 0.7;
+  lizardAudio.volume = 0.7;
 
   function ensureAudioCtx() {
     if (audioCtx) return audioCtx;
@@ -187,14 +203,17 @@
       const prevVolMiss = missAudio.volume;
       const prevVolCheese = cheeseAudio.volume;
       const prevVolRecord = recordAudio.volume;
+      const prevVolLizard = lizardAudio.volume;
       hitAudio.volume = 0;
       missAudio.volume = 0;
       cheeseAudio.volume = 0;
       recordAudio.volume = 0;
+      lizardAudio.volume = 0;
       hitAudio.currentTime = 0;
       missAudio.currentTime = 0;
       cheeseAudio.currentTime = 0;
       recordAudio.currentTime = 0;
+      lizardAudio.currentTime = 0;
       const p1 = hitAudio.play();
       if (p1 && typeof p1.then === 'function') {
         p1.then(() => hitAudio.pause()).catch(() => {});
@@ -219,10 +238,17 @@
       } else {
         recordAudio.pause();
       }
+      const p5 = lizardAudio.play();
+      if (p5 && typeof p5.then === 'function') {
+        p5.then(() => lizardAudio.pause()).catch(() => {});
+      } else {
+        lizardAudio.pause();
+      }
       hitAudio.volume = prevVolHit;
       missAudio.volume = prevVolMiss;
       cheeseAudio.volume = prevVolCheese;
       recordAudio.volume = prevVolRecord;
+      lizardAudio.volume = prevVolLizard;
     } catch {
       // ignore
     }
@@ -286,6 +312,12 @@
     if (!soundEnabled) return;
     const ok = tryPlayAudio(recordAudio);
     if (!ok) playTone({ freqHz: 880, durationMs: 200, type: 'sine', gain: 0.05 });
+  }
+
+  function playLizardSound() {
+    if (!soundEnabled) return;
+    const ok = tryPlayAudio(lizardAudio);
+    if (!ok) playTone({ freqHz: 440, durationMs: 120, type: 'square', gain: 0.04 });
   }
 
   function clamp(n, min, max) {
@@ -552,6 +584,20 @@
           ctx.fillStyle = 'rgba(255, 220, 100, 0.98)'; // Yellow color matching app theme
           ctx.fillText(e.text || 'Рекорд!', 0, 0);
           ctx.restore();
+        } else if (e.type === 'penalty') {
+          // Similar to score effect: scale up and float up ~26px, fade in/out, but red color for penalty.
+          const yOffset = -26 * t;
+          const scale = 0.95 + 0.10 * t;
+          const alpha = t < 0.25 ? t / 0.25 : 1 - (t - 0.25) / 0.75;
+
+          ctx.save();
+          ctx.globalAlpha = clamp(alpha, 0, 1);
+          ctx.translate(e.xPx, e.yPx + yOffset);
+          ctx.scale(scale, scale);
+          ctx.font = `28px Arial, "Apple Color Emoji", "Segoe UI Emoji"`;
+          ctx.fillStyle = 'rgba(255, 100, 100, 0.98)'; // Red color for penalty
+          ctx.fillText(e.text || '-1', 0, 0);
+          ctx.restore();
         }
       }
       effects = nextEffects;
@@ -659,6 +705,57 @@
       ctx.font = `${RAT_SIZE}px Arial, "Apple Color Emoji", "Segoe UI Emoji"`;
       ctx.fillStyle = '#000';
       ctx.fillText(RAT_EMOJI, 0, 0);
+      ctx.restore();
+    }
+
+    // Draw lizard if visible
+    if (lizardVisible && lizardPos) {
+      // Interpolate position if escaping
+      let drawX = lizardPos.xPx;
+      let drawY = lizardPos.yPx;
+      let angle = 0;
+
+      if (lizardEscaping && lizardTargetPos && window.lizardControlPoints) {
+        const now = Date.now();
+        const elapsed = now - lizardEscapeStartTime;
+        const t = Math.min(1, elapsed / lizardEscapeDuration);
+
+        // Generalized Bezier curve with variable control points
+        const points = [lizardPos, ...window.lizardControlPoints, lizardTargetPos];
+
+        function bezierPoint(pts, t) {
+          if (pts.length === 1) return pts[0];
+          const newPts = [];
+          for (let i = 0; i < pts.length - 1; i++) {
+            newPts.push({
+              xPx: (1 - t) * pts[i].xPx + t * pts[i + 1].xPx,
+              yPx: (1 - t) * pts[i].yPx + t * pts[i + 1].yPx
+            });
+          }
+          return bezierPoint(newPts, t);
+        }
+
+        const pos = bezierPoint(points, t);
+        drawX = pos.xPx;
+        drawY = pos.yPx;
+
+        // Calculate tangent for rotation
+        const dt = 0.01;
+        const pos1 = bezierPoint(points, Math.max(0, t - dt));
+        const pos2 = bezierPoint(points, Math.min(1, t + dt));
+        const dx = pos2.xPx - pos1.xPx;
+        const dy = pos2.yPx - pos1.yPx;
+
+        angle = Math.atan2(dy, dx) - Math.PI / 2;
+      }
+
+      // Draw emoji with rotation
+      ctx.save();
+      ctx.translate(drawX, drawY);
+      ctx.rotate(angle);
+      ctx.font = `${LIZARD_SIZE}px Arial, "Apple Color Emoji", "Segoe UI Emoji"`;
+      ctx.fillStyle = '#000';
+      ctx.fillText(LIZARD_EMOJI, 0, 0);
       ctx.restore();
     }
 
@@ -932,6 +1029,16 @@
     }
   }
 
+  function setLizardVisible(isVisible) {
+    lizardVisible = isVisible;
+    if (!isVisible) {
+      lizardPos = null;
+      lizardEscaping = false;
+      lizardTargetPos = null;
+      currentLizardHitbox = HALF_HITBOX;
+    }
+  }
+
   function setCheeseVisible(isVisible) {
     cheeseVisible = isVisible;
     if (!isVisible) cheesePos = null;
@@ -996,6 +1103,7 @@
     clearAllTimers();
     setMouseVisible(false);
     setRatVisible(false);
+    setLizardVisible(false);
     setCheeseVisible(false);
     status = 'paused';
     updateHud();
@@ -1022,6 +1130,7 @@
     clearAllTimers();
     setMouseVisible(false);
     setRatVisible(false);
+    setLizardVisible(false);
     setCheeseVisible(false);
     status = 'paused';
     if ($pauseBtn) $pauseBtn.style.display = 'none';
@@ -1100,13 +1209,20 @@
       // Count actual alive cheeses
       const aliveCheesesCount = cheeseLifePositions.filter(c => c.alive).length;
 
-      // Randomly decide to spawn cheese, rat, or mouse
-      // Only spawn cheese if player doesn't have all lives
-      if (aliveCheesesCount < MAX_LIVES && Math.random() < CHEESE_SPAWN_CHANCE) {
+      // Randomly decide to spawn cheese, rat, lizard, or mouse
+      const rand = Math.random();
+      
+      // Only spawn cheese if player doesn't have all lives (15% chance)
+      if (aliveCheesesCount < MAX_LIVES && rand < CHEESE_SPAWN_CHANCE) {
         showCheese();
-      } else if (Math.random() < RAT_SPAWN_CHANCE) {
+      } else if (rand < CHEESE_SPAWN_CHANCE + RAT_SPAWN_CHANCE) {
+        // Rat spawn (15% chance)
         showRat();
+      } else if (rand < CHEESE_SPAWN_CHANCE + RAT_SPAWN_CHANCE + LIZARD_SPAWN_CHANCE) {
+        // Lizard spawn (10% chance)
+        showLizard();
       } else {
+        // Mouse spawn (remaining probability)
         showMouse();
       }
     }, waitMs);
@@ -1548,6 +1664,115 @@
     }
   }
 
+  function showLizard() {
+    if (status !== 'running') return;
+    if (!isOrientationAllowed()) return;
+
+    const pos = pickRandomMousePosition();
+    if (!pos) {
+      console.log('Failed to pick lizard position');
+      scheduleNextMouse();
+      return;
+    }
+
+    console.log('Spawning lizard at', pos);
+    lizardPos = pos;
+    setLizardVisible(true);
+
+    // Start escaping immediately!
+    animateLizardEscape();
+  }
+
+  function animateLizardEscape() {
+    if (!lizardVisible || !lizardPos) return;
+    if (cheeseLifePositions.length === 0) return; // No cheese to target
+
+    lizardEscaping = true;
+
+    // Pick a random alive cheese to target (but won't eat it)
+    const aliveCheeses = cheeseLifePositions
+      .map((cheese, index) => ({ cheese, index }))
+      .filter(item => item.cheese.alive);
+
+    if (aliveCheeses.length === 0) return; // No alive cheese
+
+    const randomAlive = aliveCheeses[Math.floor(Math.random() * aliveCheeses.length)];
+    const targetCheese = randomAlive.cheese;
+
+    // Calculate difficulty-adjusted animation duration (same speed as mouse)
+    let animationDuration;
+    
+    if (levelMode === 'fixed') {
+      // Fixed mode: duration based on current level
+      animationDuration = getMouseLifespanMs(currentLevel);
+    } else {
+      // Fibonacci mode: duration based on survival time (old logic)
+      const survivalSeconds = Math.floor((Date.now() - gameStartMs + survivalTimeMs) / 1000);
+      const difficultyFactor = Math.max(0.3, 1 - survivalSeconds / 120);
+      animationDuration = Math.floor(1500 * difficultyFactor);
+    }
+
+    // Minimal hitbox increase
+    const speedRatio = 1500 / animationDuration;
+    const hitboxMultiplier = Math.pow(speedRatio, 0.3);
+    currentLizardHitbox = HALF_HITBOX * hitboxMultiplier;
+
+    const canvasRect = $canvas.getBoundingClientRect();
+
+    // Target: towards the cheese, then below canvas (but doesn't eat cheese)
+    const cheeseX = targetCheese.xPx;
+    const cheeseY = targetCheese.yPx;
+    const finalY = canvasRect.height + 100;
+    const targetX = cheeseX;
+    const targetY = finalY;
+
+    // Random path complexity: 2-5 control points
+    const numControlPoints = Math.floor(Math.random() * 4) + 2;
+    console.log(`Creating lizard path with ${numControlPoints} control points`);
+
+    // Generate control points with random offsets
+    const controlPoints = [];
+    for (let i = 0; i < numControlPoints; i++) {
+      const ratio = (i + 1) / (numControlPoints + 1);
+      const offsetScale = 0.3 - (i * 0.05);
+      const offsetX = (Math.random() - 0.5) * canvasRect.width * offsetScale;
+      const offsetY = (Math.random() - 0.5) * canvasRect.height * (offsetScale * 0.5);
+
+      controlPoints.push({
+        xPx: lizardPos.xPx + (cheeseX - lizardPos.xPx) * ratio + offsetX,
+        yPx: lizardPos.yPx + (cheeseY - lizardPos.yPx) * ratio + offsetY
+      });
+    }
+
+    // Adjust last control point to ensure curve goes through cheese area
+    const lastIdx = controlPoints.length - 1;
+    controlPoints[lastIdx] = {
+      xPx: cheeseX + (Math.random() - 0.5) * 30,
+      yPx: cheeseY + (Math.random() - 0.5) * 30
+    };
+
+    // Store control points
+    window.lizardControlPoints = controlPoints;
+
+    // Store animation params for render loop
+    lizardTargetPos = { xPx: targetX, yPx: targetY };
+    lizardEscapeStartTime = Date.now();
+    lizardEscapeDuration = animationDuration;
+
+    // After animation completes, lizard disappears (doesn't steal cheese)
+    setTimeout(() => {
+      if (status !== 'running' || !lizardEscaping) return;
+
+      lizardEscaping = false;
+      setLizardVisible(false);
+
+      // Schedule next spawn
+      if (status === 'running') {
+        scheduleNextMouse();
+      }
+    }, animationDuration);
+  }
+
   function spawnPuffEffect(xPx, yPx) {
     effects.push({ type: 'puff', xPx, yPx, startMs: Date.now(), durationMs: 320 });
   }
@@ -1558,6 +1783,10 @@
 
   function spawnRecordEffect(xPx, yPx, text) {
     effects.push({ type: 'record', xPx, yPx, text, startMs: Date.now(), durationMs: 800 });
+  }
+
+  function spawnPenaltyEffect(xPx, yPx, text = '-1') {
+    effects.push({ type: 'penalty', xPx, yPx, text, startMs: Date.now(), durationMs: 520 });
   }
 
   function showCheese() {
@@ -1631,6 +1860,7 @@
 
     setMouseVisible(false);
     setRatVisible(false);
+    setLizardVisible(false);
     setCheeseVisible(false);
 
     setOverlay($startOverlay, false);
@@ -1652,6 +1882,7 @@
     clearAllTimers();
     setMouseVisible(false);
     setRatVisible(false);
+    setLizardVisible(false);
     setCheeseVisible(false);
 
     status = 'ended';
@@ -1699,6 +1930,7 @@
     clearAllTimers();
     setMouseVisible(false);
     setRatVisible(false);
+    setLizardVisible(false);
     setCheeseVisible(false);
     hideCat();
 
@@ -1870,6 +2102,53 @@
       }
     }
 
+    // Check if caught escaping lizard (use bezier curve interpolated position)
+    if (lizardEscaping && lizardVisible) {
+      let currentLizardX = lizardPos.xPx;
+      let currentLizardY = lizardPos.yPx;
+
+      if (lizardTargetPos && window.lizardControlPoints) {
+        const now = Date.now();
+        const elapsed = now - lizardEscapeStartTime;
+        const t = Math.min(1, elapsed / lizardEscapeDuration);
+
+        // Generalized Bezier curve (matches render loop)
+        const points = [lizardPos, ...window.lizardControlPoints, lizardTargetPos];
+
+        function bezierPoint(pts, t) {
+          if (pts.length === 1) return pts[0];
+          const newPts = [];
+          for (let i = 0; i < pts.length - 1; i++) {
+            newPts.push({
+              xPx: (1 - t) * pts[i].xPx + t * pts[i + 1].xPx,
+              yPx: (1 - t) * pts[i].yPx + t * pts[i + 1].yPx
+            });
+          }
+          return bezierPoint(newPts, t);
+        }
+
+        const pos = bezierPoint(points, t);
+        currentLizardX = pos.xPx;
+        currentLizardY = pos.yPx;
+      }
+
+      if (pointInHitbox(xPx, yPx, currentLizardX, currentLizardY, currentLizardHitbox)) {
+        score -= 1; // Lizard gives -1 points (penalty)
+        playLizardSound();
+        // Hit effects: 💥 + floating -1 at lizard position.
+        spawnPuffEffect(currentLizardX, currentLizardY);
+        spawnPenaltyEffect(currentLizardX, currentLizardY - 36, '-1');
+        updateHud();
+
+        // Caught the escaping lizard!
+        lizardEscaping = false;
+        setLizardVisible(false);
+        scheduleNextMouse();
+        ev.preventDefault?.();
+        return;
+      }
+    }
+
     // Check if caught cheese (restore life)
     if (pointInCheeseHitbox(xPx, yPx)) {
       // Count actual alive cheeses
@@ -1945,10 +2224,11 @@
       setupCanvas(); // Resize canvas
       updateOrientationOverlay();
 
-      // При ресайзе безопасно скрыть мышь, крысу и сыр и продолжить цикл.
+      // При ресайзе безопасно скрыть мышь, крысу, ящерицу и сыр и продолжить цикл.
       if (status === 'running') {
         setMouseVisible(false);
         setRatVisible(false);
+        setLizardVisible(false);
         setCheeseVisible(false);
         clearTimer(cheeseHideTimerId);
         cheeseHideTimerId = null;
@@ -1988,6 +2268,7 @@
             clearAllTimers();
             setMouseVisible(false);
             setRatVisible(false);
+            setLizardVisible(false);
             setCheeseVisible(false);
             status = 'paused';
             updateHud();
