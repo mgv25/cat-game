@@ -1,5 +1,5 @@
 :root {
-  --hud-height: 64px;
+  --hud-height: 128px;
   --bg: #0b1020;
   --hud-bg: rgba(255, 255, 255, 0.08);
   --card-bg: rgba(255, 255, 255, 0.12);
@@ -31,24 +31,59 @@ body {
 
 #hud {
   height: var(--hud-height);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 10px 14px;
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  grid-template-rows: 1fr 1fr;
+  gap: 8px;
+  padding: 8px 10px;
   background: var(--hud-bg);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
   border-bottom: 1px solid rgba(255, 255, 255, 0.14);
 }
 
-.hudItem {
-  font-size: 16px;
-  letter-spacing: 0.2px;
-  white-space: nowrap;
+.hudCard {
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-width: 0;
 }
 
-.hudLabel {
-  color: var(--muted);
+.hudCardLabel {
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 12px;
+  letter-spacing: 0.3px;
+}
+
+.hudCardValue {
+  font-size: 20px;
+  font-weight: 900;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.hudCardTime {
+  text-align: center;
+}
+
+.hudCardTime .hudCardValue {
+  font-size: 24px;
+}
+
+.hudCardSmall .hudCardValue {
+  font-size: 18px;
+}
+
+.hudLives {
+  letter-spacing: 1px;
 }
 
 #gameField {
@@ -123,12 +158,99 @@ body {
   transform: translateY(1px);
 }
 
+.btnSecondary {
+  background: rgba(255, 255, 255, 0.10);
+  border-color: rgba(255, 255, 255, 0.18);
+}
+
+.btnSmall {
+  width: auto;
+  padding: 10px 12px;
+  font-size: 14px;
+}
+
+.historyCard {
+  width: min(720px, 100%);
+}
+
+.historyHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.historyTitle {
+  margin: 0;
+}
+
+.historyList {
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.18);
+  overflow-y: auto;
+  max-height: min(62vh, 520px);
+}
+
+.historyRow {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: 10px;
+  padding: 10px 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.10);
+  align-items: center;
+}
+
+.historyRow:last-child {
+  border-bottom: none;
+}
+
+.historyMain {
+  min-width: 0;
+}
+
+.historyLine1 {
+  font-weight: 900;
+  font-size: 15px;
+}
+
+.historyLine2 {
+  margin-top: 2px;
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 12px;
+}
+
+.badge {
+  font-size: 12px;
+  font-weight: 800;
+  padding: 6px 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.10);
+  white-space: nowrap;
+}
+
 @media (max-width: 360px) {
   :root {
-    --hud-height: 58px;
+    --hud-height: 118px;
   }
 
-  .hudItem {
-    font-size: 14px;
+  #hud {
+    gap: 6px;
+    padding: 7px 8px;
+  }
+
+  .hudCard {
+    padding: 7px 8px;
+    border-radius: 10px;
+  }
+
+  .hudCardValue {
+    font-size: 18px;
+  }
+
+  .hudCardTime .hudCardValue {
+    font-size: 22px;
   }
 }

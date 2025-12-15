@@ -8,9 +8,33 @@
   </head>
   <body>
     <header id="hud" aria-label="Панель игры">
-      <div class="hudItem"><span class="hudLabel">Счёт:</span> <span id="score">0</span></div>
-      <div class="hudItem"><span class="hudLabel">Время:</span> <span id="survivalTime">0</span>с</div>
-      <div class="hudItem"><span class="hudLabel">Уровень:</span> <span id="level">0</span></div>
+      <!-- Row 1 -->
+      <div class="hudCard">
+        <div class="hudCardLabel">Счёт</div>
+        <div class="hudCardValue" id="score">0</div>
+      </div>
+      <div class="hudCard hudCardTime">
+        <div class="hudCardLabel">Время</div>
+        <div class="hudCardValue"><span id="survivalTime">0</span>с</div>
+      </div>
+      <div class="hudCard">
+        <div class="hudCardLabel">Уровень</div>
+        <div class="hudCardValue" id="level">0</div>
+      </div>
+
+      <!-- Row 2 -->
+      <div class="hudCard hudCardSmall">
+        <div class="hudCardLabel">Жизни</div>
+        <div class="hudCardValue hudLives" id="lives">🧀🧀🧀🧀🧀</div>
+      </div>
+      <div class="hudCard hudCardSmall">
+        <div class="hudCardLabel">Рекорд</div>
+        <div class="hudCardValue" id="bestScoreHud">0</div>
+      </div>
+      <div class="hudCard hudCardSmall">
+        <div class="hudCardLabel">Прогресс</div>
+        <div class="hudCardValue" id="savedLevelHud">0</div>
+      </div>
     </header>
 
     <main id="gameField" aria-label="Игровое поле">
@@ -25,6 +49,7 @@
           </div>
           <button id="startBtn" class="btn" type="button">Новая игра</button>
           <button id="continueBtn" class="btn" type="button" style="display: none; margin-top: 8px;">Продолжить с уровня <span id="continueLevelDisplay">0</span></button>
+          <button id="historyBtnStart" class="btn btnSecondary" type="button" style="margin-top: 8px;">История игр</button>
         </div>
       </section>
 
@@ -36,6 +61,7 @@
           <p class="subtitle">Поймано мышей: <strong id="finalScore">0</strong></p>
           <p class="subtitle">Лучший счёт: <strong id="finalBest">0</strong></p>
           <button id="restartBtn" class="btn" type="button">Сыграть ещё раз</button>
+          <button id="historyBtnEnd" class="btn btnSecondary" type="button" style="margin-top: 8px;">История игр</button>
         </div>
       </section>
 
@@ -43,6 +69,16 @@
         <div class="overlayCard">
           <h2 class="title">Поверните устройство</h2>
           <p class="subtitle">На телефоне игра работает только в портретной ориентации.</p>
+        </div>
+      </section>
+
+      <section id="historyOverlay" class="overlay hidden" aria-label="История игр" role="dialog" aria-modal="true">
+        <div class="overlayCard historyCard">
+          <div class="historyHeader">
+            <h2 class="title historyTitle">История игр</h2>
+            <button id="historyCloseBtn" class="btn btnSmall" type="button">Закрыть</button>
+          </div>
+          <div id="historyList" class="historyList" aria-label="Последние игры"></div>
         </div>
       </section>
     </main>

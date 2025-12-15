@@ -3,6 +3,8 @@
   const INITIAL_LIVES = 5;
   const BEST_SCORE_KEY = 'catMouseBestScore';
   const SAVED_LEVEL_KEY = 'catMouseSavedLevel';
+  const HISTORY_KEY = 'catMouseHistoryV2';
+  const HISTORY_LIMIT = 50;
   const HITBOX_SIZE_PX = 60; // Base hitbox size (reduced for difficulty)
   const HALF_HITBOX = HITBOX_SIZE_PX / 2;
   const BASE_MIN_SPAWN_MS = 800;
@@ -18,6 +20,9 @@
   const $score = document.getElementById('score');
   const $survivalTime = document.getElementById('survivalTime');
   const $level = document.getElementById('level');
+  const $lives = document.getElementById('lives');
+  const $bestScoreHud = document.getElementById('bestScoreHud');
+  const $savedLevelHud = document.getElementById('savedLevelHud');
 
   const $gameField = document.getElementById('gameField');
   const $canvas = document.getElementById('gameCanvas');
@@ -34,6 +39,11 @@
   const $savedLevelInfo = document.getElementById('savedLevelInfo');
   const $savedLevelDisplay = document.getElementById('savedLevelDisplay');
   const $continueLevelDisplay = document.getElementById('continueLevelDisplay');
+  const $historyBtnStart = document.getElementById('historyBtnStart');
+  const $historyBtnEnd = document.getElementById('historyBtnEnd');
+  const $historyOverlay = document.getElementById('historyOverlay');
+  const $historyCloseBtn = document.getElementById('historyCloseBtn');
+  const $historyList = document.getElementById('historyList');
 
   const $finalTime = document.getElementById('finalTime');
   const $finalLevel = document.getElementById('finalLevel');
@@ -50,6 +60,7 @@
   let lives = INITIAL_LIVES;
   let currentLevel = 0;
   let savedLevel = 0;
+  let savedLevelAtRoundStart = 0;
   let gameStartMs = 0;
   let survivalTimeMs = 0;
   let pausedSurvivalMs = 0;
@@ -222,6 +233,72 @@
 
   function randomIntInclusive(min, max) {
     return Math.floor(Math.random() * (max - min + 1)) + min;
+  }
+
+  /** @type {Array<{ts:number, score:number, survivalSeconds:number, level:number, isBestScore:boolean, isBestLevel:boolean}>} */
+  let history = [];
+
+  function loadHistory() {
+    try {
+      const raw = window.localStorage.getItem(HISTORY_KEY);
+      const arr = JSON.parse(raw || '[]');
+      history = Array.isArray(arr) ? arr.slice(0, HISTORY_LIMIT) : [];
+    } catch {
+      history = [];
+    }
+  }
+
+  function saveHistory() {
+    try {
+      window.localStorage.setItem(HISTORY_KEY, JSON.stringify(history.slice(0, HISTORY_LIMIT)));
+    } catch {
+      // ignore
+    }
+  }
+
+  function formatTs(ts) {
+    try {
+      const d = new Date(ts);
+      return d
+        .toLocaleDateString('ru-RU', { day: '2-digit', month: 'long', year: 'numeric' })
+        .replace(/\s?г\.?$/, '');
+    } catch {
+      return '';
+    }
+  }
+
+  function renderHistory() {
+    if (!$historyList) return;
+    if (!history.length) {
+      $historyList.innerHTML =
+        '<div class="historyRow"><div class="historyMain"><div class="historyLine1">Пока нет игр</div><div class="historyLine2">Сыграй хотя бы один раунд</div></div></div>';
+      return;
+    }
+
+    $historyList.innerHTML = history
+      .map((h) => {
+        return `
+          <div class="historyRow">
+            <div class="historyMain">
+              <div class="historyLine1">Очки: ${h.score} · Время: ${h.survivalSeconds}с · Уровень: ${h.level}</div>
+              <div class="historyLine2">${formatTs(h.ts)}</div>
+            </div>
+            ${h.isBestScore ? '<span class="badge">Рекорд счёта</span>' : '<span></span>'}
+            ${h.isBestLevel ? '<span class="badge">Рекорд уровня</span>' : '<span></span>'}
+          </div>
+        `;
+      })
+      .join('');
+  }
+
+  function openHistory() {
+    if (!(status === 'idle' || status === 'ended')) return;
+    renderHistory();
+    setOverlay($historyOverlay, true);
+  }
+
+  function closeHistory() {
+    setOverlay($historyOverlay, false);
   }
 
   function setupCanvas() {
@@ -556,6 +633,8 @@
   function updateHud() {
     $score.textContent = String(score);
     $level.textContent = String(currentLevel);
+    if ($bestScoreHud) $bestScoreHud.textContent = String(bestScore);
+    if ($savedLevelHud) $savedLevelHud.textContent = String(savedLevel);
 
     let survivalSeconds = 0;
     if (status === 'running') {
@@ -568,6 +647,12 @@
     }
     $survivalTime.textContent = String(survivalSeconds);
     $level.textContent = String(currentLevel);
+
+    if ($lives) {
+      const aliveCheesesCount = cheeseLifePositions.filter(c => c.alive).length;
+      const count = clamp(aliveCheesesCount, 0, MAX_LIVES);
+      $lives.textContent = '🧀'.repeat(count) + '▫️'.repeat(Math.max(0, MAX_LIVES - count));
+    }
   }
 
   function isPhoneLike() {
@@ -930,6 +1015,7 @@
 
     score = 0;
     bestScoreAtRoundStart = bestScore;
+    savedLevelAtRoundStart = savedLevel;
     status = 'running';
     unlockAudio();
 
@@ -954,6 +1040,7 @@
 
     setOverlay($startOverlay, false);
     setOverlay($endOverlay, false);
+    closeHistory();
 
     updateHud();
     startTick();
@@ -985,6 +1072,17 @@
     // Save best score if improved
     if (bestScore > bestScoreAtRoundStart) saveBestScore();
 
+    history.unshift({
+      ts: Date.now(),
+      score,
+      survivalSeconds: finalSurvivalSeconds,
+      level: finalLevel,
+      isBestScore: score > bestScoreAtRoundStart,
+      isBestLevel: finalLevel > savedLevelAtRoundStart,
+    });
+    history = history.slice(0, HISTORY_LIMIT);
+    saveHistory();
+
     $finalTime.textContent = String(finalSurvivalSeconds);
     $finalLevel.textContent = String(finalLevel);
     $finalScore.textContent = String(score);
@@ -1011,6 +1109,7 @@
     setOverlay($endOverlay, false);
     setOverlay($startOverlay, true);
     updateStartOverlay();
+    closeHistory();
     updateHud();
   }
 
@@ -1132,6 +1231,15 @@
       startGame(false);
     });
 
+    if ($historyBtnStart) $historyBtnStart.addEventListener('click', () => openHistory());
+    if ($historyBtnEnd) $historyBtnEnd.addEventListener('click', () => openHistory());
+    if ($historyCloseBtn) $historyCloseBtn.addEventListener('click', () => closeHistory());
+    if ($historyOverlay) {
+      $historyOverlay.addEventListener('click', (ev) => {
+        if (ev.target === $historyOverlay) closeHistory();
+      });
+    }
+
     // Prevent double-tap zoom on iOS Safari
     let lastTouchEnd = 0;
     document.addEventListener('touchend', (event) => {
@@ -1170,6 +1278,7 @@
     setupCanvas();
     loadBestScore();
     loadSavedLevel();
+    loadHistory();
     updateStartOverlay();
     updateHud();
     bindEvents();
