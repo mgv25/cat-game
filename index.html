@@ -29,6 +29,7 @@
       </div>
       <div class="hudCard hudCardSmall">
         <button id="pauseBtn" class="btnPause" type="button">Стоп игра</button>
+        <button id="settingsBtn" class="btnSettings" type="button" style="display: none;">⚙️ Настройки</button>
       </div>
       <div class="hudCard hudCardSmall" id="savedLevelCard">
         <div class="hudCardLabel">Рекорд уровня</div>
@@ -90,6 +91,24 @@
           <h2 class="title">Игра на паузе</h2>
           <button id="resumeBtn" class="btn" type="button">Продолжить</button>
           <button id="endGameBtn" class="btn btnDanger" type="button" style="margin-top: 8px;">Закончить игру</button>
+        </div>
+      </section>
+
+      <section id="settingsOverlay" class="overlay hidden" aria-label="Настройки" role="dialog" aria-modal="true">
+        <div class="overlayCard">
+          <div class="historyHeader">
+            <h2 class="title historyTitle">⚙️ Настройки</h2>
+            <button id="settingsCloseBtn" class="btn btnSmall" type="button">Закрыть</button>
+          </div>
+          <div class="settingsContent">
+            <div class="settingsSection">
+              <div class="settingsLabel">Способ начисления уровней</div>
+              <div class="segmentedControl">
+                <button type="button" class="segmentButton" data-value="fixed">По 10 секунд</button>
+                <button type="button" class="segmentButton active" data-value="fibonacci">Фибоначчи</button>
+              </div>
+            </div>
+          </div>
         </div>
       </section>
     </main>

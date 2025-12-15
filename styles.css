@@ -221,6 +221,28 @@ body {
   transform: translateY(1px);
 }
 
+.btnSettings {
+  appearance: none;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  background: rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.95);
+  border-radius: 12px;
+  padding: 8px 10px;
+  font-weight: 700;
+  font-size: 14px;
+  width: 100%;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.btnSettings:hover {
+  background: rgba(255, 255, 255, 0.18);
+}
+
+.btnSettings:active {
+  transform: translateY(1px);
+}
+
 .historyCard {
   width: min(720px, 100%);
 }
@@ -281,6 +303,63 @@ body {
   border: 1px solid rgba(255, 255, 255, 0.18);
   background: rgba(255, 255, 255, 0.10);
   white-space: nowrap;
+}
+
+.settingsContent {
+  margin-top: 12px;
+}
+
+.settingsSection {
+  margin-bottom: 20px;
+}
+
+.settingsLabel {
+  color: rgba(255, 255, 255, 0.92);
+  font-size: 16px;
+  font-weight: 700;
+  margin-bottom: 12px;
+}
+
+.segmentedControl {
+  display: flex;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+  gap: 0;
+}
+
+.segmentButton {
+  flex: 1;
+  appearance: none;
+  border: none;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.75);
+  font-size: 15px;
+  font-weight: 600;
+  padding: 10px 16px;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s;
+  position: relative;
+}
+
+.segmentButton:not(:last-child) {
+  border-right: 1px solid rgba(255, 255, 255, 0.22);
+}
+
+.segmentButton:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.segmentButton.active {
+  background: rgba(255, 255, 255, 0.18);
+  color: rgba(255, 255, 255, 0.98);
+  font-weight: 700;
+}
+
+.segmentButton:active {
+  transform: none;
 }
 
 @media (max-width: 360px) {

@@ -62,6 +62,9 @@
   const $pauseBtn = document.getElementById('pauseBtn');
   const $resumeBtn = document.getElementById('resumeBtn');
   const $endGameBtn = document.getElementById('endGameBtn');
+  const $settingsBtn = document.getElementById('settingsBtn');
+  const $settingsOverlay = document.getElementById('settingsOverlay');
+  const $settingsCloseBtn = document.getElementById('settingsCloseBtn');
 
   /** @type {'idle'|'running'|'paused'|'ended'} */
   let status = 'idle';
@@ -348,6 +351,27 @@
 
   function closeHistory() {
     setOverlay($historyOverlay, false);
+  }
+
+  function openSettings() {
+    if (!(status === 'idle' || status === 'ended')) return;
+    setOverlay($settingsOverlay, true);
+  }
+
+  function closeSettings() {
+    setOverlay($settingsOverlay, false);
+  }
+
+  function initSegmentedControl() {
+    const segmentButtons = document.querySelectorAll('.segmentButton');
+    segmentButtons.forEach(button => {
+      button.addEventListener('click', () => {
+        // Remove active class from all buttons
+        segmentButtons.forEach(btn => btn.classList.remove('active'));
+        // Add active class to clicked button
+        button.classList.add('active');
+      });
+    });
   }
 
   function setupCanvas() {
@@ -1436,8 +1460,10 @@
     setOverlay($endOverlay, false);
     setOverlay($pauseOverlay, false);
     closeHistory();
+    closeSettings();
 
     if ($pauseBtn) $pauseBtn.style.display = 'block';
+    if ($settingsBtn) $settingsBtn.style.display = 'none';
     updateHud();
     startTick();
     scheduleNextMouse();
@@ -1488,6 +1514,7 @@
     updateHud();
     updateEndOverlay();
     if ($pauseBtn) $pauseBtn.style.display = 'none';
+    if ($settingsBtn) $settingsBtn.style.display = 'block';
     setOverlay($endOverlay, true);
   }
 
@@ -1516,8 +1543,10 @@
     setOverlay($pauseOverlay, false);
     setOverlay($startOverlay, true);
     if ($pauseBtn) $pauseBtn.style.display = 'none';
+    if ($settingsBtn) $settingsBtn.style.display = 'block';
     updateStartOverlay();
     closeHistory();
+    closeSettings();
     updateHud();
   }
 
@@ -1713,6 +1742,14 @@
       });
     }
 
+    if ($settingsBtn) $settingsBtn.addEventListener('click', () => openSettings());
+    if ($settingsCloseBtn) $settingsCloseBtn.addEventListener('click', () => closeSettings());
+    if ($settingsOverlay) {
+      $settingsOverlay.addEventListener('click', (ev) => {
+        if (ev.target === $settingsOverlay) closeSettings();
+      });
+    }
+
     // Prevent double-tap zoom on iOS Safari
     let lastTouchEnd = 0;
     document.addEventListener('touchend', (event) => {
@@ -1756,8 +1793,10 @@
     updateStartOverlay();
     updateHud();
     bindEvents();
+    initSegmentedControl();
     updateOrientationOverlay();
     if ($pauseBtn) $pauseBtn.style.display = 'none';
+    if ($settingsBtn) $settingsBtn.style.display = 'block';
     render(); // Start render loop
 
     // Если вкладка скрыта — поставим игру на паузу (без усложнения таймингов мыши).
