@@ -14,6 +14,7 @@
   const HIT_SOUND_SRC = './assets/sounds/hit.mp3';
   const MISS_SOUND_SRC = './assets/sounds/miss.mp3';
   const CHEESE_SOUND_SRC = './assets/sounds/cheese.mp3';
+  const RECORD_SOUND_SRC = './assets/sounds/record.mp3';
   const MOUSE_EMOJI = '🐁';
   const CAT_EMOJI = '🐈';
 
@@ -65,11 +66,13 @@
   let score = 0;
   let bestScore = 0;
   let bestScoreAtRoundStart = 0;
+  let recordScoreShown = false; // Track if score record was already shown this round
 
   let lives = INITIAL_LIVES;
   let currentLevel = 0;
   let savedLevel = 0;
   let savedLevelAtRoundStart = 0;
+  let recordLevelShown = false; // Track if level record was already shown this round
   let gameStartMs = 0;
   let survivalTimeMs = 0;
   let pausedSurvivalMs = 0;
@@ -94,7 +97,7 @@
   let catPos = null;
 
   // Transient hit effects (puff + floating score) rendered on canvas
-  /** @type {Array<{type:'puff'|'score', xPx:number, yPx:number, text?:string, startMs:number, durationMs:number}>} */
+  /** @type {Array<{type:'puff'|'score'|'record', xPx:number, yPx:number, text?:string, startMs:number, durationMs:number}>} */
   let effects = [];
 
   // Canvas emoji sizes
@@ -123,12 +126,15 @@
   const hitAudio = new Audio(HIT_SOUND_SRC);
   const missAudio = new Audio(MISS_SOUND_SRC);
   const cheeseAudio = new Audio(CHEESE_SOUND_SRC);
+  const recordAudio = new Audio(RECORD_SOUND_SRC);
   hitAudio.preload = 'auto';
   missAudio.preload = 'auto';
   cheeseAudio.preload = 'auto';
+  recordAudio.preload = 'auto';
   hitAudio.volume = 0.7;
   missAudio.volume = 0.6;
   cheeseAudio.volume = 0.7;
+  recordAudio.volume = 0.7;
 
   function ensureAudioCtx() {
     if (audioCtx) return audioCtx;
@@ -153,12 +159,15 @@
       const prevVolHit = hitAudio.volume;
       const prevVolMiss = missAudio.volume;
       const prevVolCheese = cheeseAudio.volume;
+      const prevVolRecord = recordAudio.volume;
       hitAudio.volume = 0;
       missAudio.volume = 0;
       cheeseAudio.volume = 0;
+      recordAudio.volume = 0;
       hitAudio.currentTime = 0;
       missAudio.currentTime = 0;
       cheeseAudio.currentTime = 0;
+      recordAudio.currentTime = 0;
       const p1 = hitAudio.play();
       if (p1 && typeof p1.then === 'function') {
         p1.then(() => hitAudio.pause()).catch(() => {});
@@ -177,9 +186,16 @@
       } else {
         cheeseAudio.pause();
       }
+      const p4 = recordAudio.play();
+      if (p4 && typeof p4.then === 'function') {
+        p4.then(() => recordAudio.pause()).catch(() => {});
+      } else {
+        recordAudio.pause();
+      }
       hitAudio.volume = prevVolHit;
       missAudio.volume = prevVolMiss;
       cheeseAudio.volume = prevVolCheese;
+      recordAudio.volume = prevVolRecord;
     } catch {
       // ignore
     }
@@ -234,6 +250,11 @@
   function playCheeseSound() {
     const ok = tryPlayAudio(cheeseAudio);
     if (!ok) playTone({ freqHz: 660, durationMs: 90, type: 'square', gain: 0.03 });
+  }
+
+  function playRecordSound() {
+    const ok = tryPlayAudio(recordAudio);
+    if (!ok) playTone({ freqHz: 880, durationMs: 200, type: 'sine', gain: 0.05 });
   }
 
   function clamp(n, min, max) {
@@ -395,6 +416,20 @@
           ctx.font = `28px Arial, "Apple Color Emoji", "Segoe UI Emoji"`;
           ctx.fillStyle = 'rgba(255, 247, 190, 0.98)';
           ctx.fillText(e.text || '+1', 0, 0);
+          ctx.restore();
+        } else if (e.type === 'record') {
+          // Similar to score effect: scale up and float up ~26px, fade in/out, but yellow color.
+          const yOffset = -26 * t;
+          const scale = 0.95 + 0.10 * t;
+          const alpha = t < 0.25 ? t / 0.25 : 1 - (t - 0.25) / 0.75;
+
+          ctx.save();
+          ctx.globalAlpha = clamp(alpha, 0, 1);
+          ctx.translate(e.xPx, e.yPx + yOffset);
+          ctx.scale(scale, scale);
+          ctx.font = `32px Arial, "Apple Color Emoji", "Segoe UI Emoji"`;
+          ctx.fillStyle = 'rgba(255, 220, 100, 0.98)'; // Yellow color matching app theme
+          ctx.fillText(e.text || 'Рекорд!', 0, 0);
           ctx.restore();
         }
       }
@@ -664,7 +699,16 @@
     let survivalSeconds = 0;
     if (status === 'running') {
       survivalSeconds = Math.floor((Date.now() - gameStartMs + survivalTimeMs) / 1000);
-      currentLevel = calculateLevel(survivalSeconds);
+      const newLevel = calculateLevel(survivalSeconds);
+      // Check if level record was beaten (only when level actually increases)
+      if (newLevel !== currentLevel && !recordLevelShown && newLevel > savedLevelAtRoundStart) {
+        recordLevelShown = true;
+        playRecordSound();
+        // Show record effect at center of canvas
+        const rect = $canvas.getBoundingClientRect();
+        spawnRecordEffect(rect.width / 2, rect.height / 2, 'Рекорд уровня!');
+      }
+      currentLevel = newLevel;
     } else if (status === 'paused') {
       survivalSeconds = Math.floor((pausedSurvivalMs + survivalTimeMs) / 1000);
     } else {
@@ -1032,6 +1076,10 @@
     effects.push({ type: 'score', xPx, yPx, text, startMs: Date.now(), durationMs: 520 });
   }
 
+  function spawnRecordEffect(xPx, yPx, text) {
+    effects.push({ type: 'record', xPx, yPx, text, startMs: Date.now(), durationMs: 800 });
+  }
+
   function showCheese() {
     if (status !== 'running') return;
     if (!isOrientationAllowed()) return;
@@ -1076,6 +1124,8 @@
     score = 0;
     bestScoreAtRoundStart = bestScore;
     savedLevelAtRoundStart = savedLevel;
+    recordScoreShown = false;
+    recordLevelShown = false;
     status = 'running';
     unlockAudio();
 
@@ -1170,6 +1220,8 @@
     survivalTimeMs = 0;
     pausedSurvivalMs = 0;
     isUserPaused = false;
+    recordScoreShown = false;
+    recordLevelShown = false;
     resetCheeseLifeStates(); // Reset cheese life states
 
     setOverlay($endOverlay, false);
@@ -1248,6 +1300,12 @@
         spawnScoreEffect(currentMouseX, currentMouseY - 36, '+1');
         if (score > bestScore) {
           bestScore = score;
+        }
+        // Check if score record was beaten
+        if (!recordScoreShown && score > bestScoreAtRoundStart) {
+          recordScoreShown = true;
+          playRecordSound();
+          spawnRecordEffect(currentMouseX, currentMouseY - 70, 'Рекорд очков!');
         }
         updateHud();
 
