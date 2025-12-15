@@ -4,6 +4,7 @@
   const BEST_SCORE_KEY = 'catMouseBestScore';
   const SAVED_LEVEL_KEY = 'catMouseSavedLevel';
   const HISTORY_KEY = 'catMouseHistoryV2';
+  const LEVEL_MODE_KEY = 'catMouseLevelMode';
   const HISTORY_LIMIT = 50;
   const HITBOX_SIZE_PX = 60; // Base hitbox size (reduced for difficulty)
   const HALF_HITBOX = HITBOX_SIZE_PX / 2;
@@ -77,11 +78,12 @@
   let scoreRecordBeaten = false; // Track if score record was beaten in current game
 
   let lives = INITIAL_LIVES;
-  let currentLevel = 0;
+  let currentLevel = 1;
   let savedLevel = 0;
   let savedLevelAtRoundStart = 0;
   let recordLevelShown = false; // Track if level record was already shown this round
   let levelRecordBeaten = false; // Track if level record was beaten in current game
+  let levelMode = 'fixed'; // 'fibonacci' or 'fixed' (10 seconds per level) - default is 'fixed'
   let gameStartMs = 0;
   let survivalTimeMs = 0;
   let pausedSurvivalMs = 0;
@@ -364,12 +366,27 @@
 
   function initSegmentedControl() {
     const segmentButtons = document.querySelectorAll('.segmentButton');
+    
+    // Set initial state based on loaded mode
+    segmentButtons.forEach(button => {
+      const value = button.getAttribute('data-value');
+      if (value === levelMode) {
+        button.classList.add('active');
+      } else {
+        button.classList.remove('active');
+      }
+    });
+    
+    // Add click handlers
     segmentButtons.forEach(button => {
       button.addEventListener('click', () => {
+        const value = button.getAttribute('data-value');
         // Remove active class from all buttons
         segmentButtons.forEach(btn => btn.classList.remove('active'));
         // Add active class to clicked button
         button.classList.add('active');
+        // Save the selected mode
+        saveLevelMode(value);
       });
     });
   }
@@ -692,6 +709,28 @@
     }
   }
 
+  function loadLevelMode() {
+    try {
+      const raw = window.localStorage.getItem(LEVEL_MODE_KEY);
+      if (raw === 'fixed' || raw === 'fibonacci') {
+        levelMode = raw;
+      } else {
+        levelMode = 'fixed'; // Default: linear 10 seconds per level
+      }
+    } catch {
+      levelMode = 'fixed'; // Default: linear 10 seconds per level
+    }
+  }
+
+  function saveLevelMode(mode) {
+    try {
+      window.localStorage.setItem(LEVEL_MODE_KEY, mode);
+      levelMode = mode;
+    } catch {
+      // ignore
+    }
+  }
+
   // Generate Fibonacci number for a given index (0-indexed)
   function fibonacci(n) {
     if (n <= 0) return 0;
@@ -705,14 +744,21 @@
     return b;
   }
 
-  // Get the time threshold in seconds for a given level
+  // Get the time threshold in seconds for a given level (levels start from 1)
   function getLevelTimeSeconds(level) {
-    return fibonacci(level);
+    if (level <= 1) return 0; // Level 1 is reached immediately
+    if (levelMode === 'fixed') {
+      // Linear: each level requires 10 seconds (level 2 at 10s, level 3 at 20s, etc.)
+      return (level - 1) * 10;
+    } else {
+      // Fibonacci mode (default): level 2 at 1s, level 3 at 2s, level 4 at 3s, etc.
+      return fibonacci(level - 1);
+    }
   }
 
-  // Calculate current level based on survival time in seconds
+  // Calculate current level based on survival time in seconds (levels start from 1)
   function calculateLevel(survivalSeconds) {
-    let level = 0;
+    let level = 1; // Start from level 1
     while (getLevelTimeSeconds(level + 1) <= survivalSeconds) {
       level++;
     }
@@ -1442,7 +1488,7 @@
       survivalTimeMs = levelTimeSeconds * 1000;
     } else {
       // Start fresh
-      currentLevel = 0;
+      currentLevel = 1;
       survivalTimeMs = 0;
     }
 
@@ -1528,7 +1574,7 @@
     status = 'idle';
     score = 0;
     lives = INITIAL_LIVES;
-    currentLevel = 0;
+    currentLevel = 1;
     survivalTimeMs = 0;
     pausedSurvivalMs = 0;
     isUserPaused = false;
@@ -1789,6 +1835,7 @@
     setupCanvas();
     loadBestScore();
     loadSavedLevel();
+    loadLevelMode();
     loadHistory();
     updateStartOverlay();
     updateHud();
