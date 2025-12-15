@@ -35,10 +35,14 @@
   const $startBtn = document.getElementById('startBtn');
   const $continueBtn = document.getElementById('continueBtn');
   const $restartBtn = document.getElementById('restartBtn');
+  const $continueBtnEnd = document.getElementById('continueBtnEnd');
 
   const $savedLevelInfo = document.getElementById('savedLevelInfo');
   const $savedLevelDisplay = document.getElementById('savedLevelDisplay');
   const $continueLevelDisplay = document.getElementById('continueLevelDisplay');
+  const $savedLevelInfoEnd = document.getElementById('savedLevelInfoEnd');
+  const $savedLevelDisplayEnd = document.getElementById('savedLevelDisplayEnd');
+  const $continueLevelDisplayEnd = document.getElementById('continueLevelDisplayEnd');
   const $historyBtnStart = document.getElementById('historyBtnStart');
   const $historyBtnEnd = document.getElementById('historyBtnEnd');
   const $historyOverlay = document.getElementById('historyOverlay');
@@ -591,9 +595,25 @@
       $savedLevelDisplay.textContent = String(savedLevel);
       $continueBtn.style.display = 'block';
       $continueLevelDisplay.textContent = String(savedLevel);
+      $startBtn.style.marginTop = '8px';
     } else {
       $savedLevelInfo.style.display = 'none';
       $continueBtn.style.display = 'none';
+      $startBtn.style.marginTop = '0';
+    }
+  }
+
+  function updateEndOverlay() {
+    if (savedLevel > 0) {
+      $savedLevelInfoEnd.style.display = 'block';
+      $savedLevelDisplayEnd.textContent = String(savedLevel);
+      $continueBtnEnd.style.display = 'block';
+      $continueLevelDisplayEnd.textContent = String(savedLevel);
+      $restartBtn.style.marginTop = '8px';
+    } else {
+      $savedLevelInfoEnd.style.display = 'none';
+      $continueBtnEnd.style.display = 'none';
+      $restartBtn.style.marginTop = '0';
     }
   }
 
@@ -1089,6 +1109,7 @@
     $finalBest.textContent = String(bestScore);
 
     updateHud();
+    updateEndOverlay();
     setOverlay($endOverlay, true);
   }
 
@@ -1225,11 +1246,8 @@
   function bindEvents() {
     $startBtn.addEventListener('click', () => startGame(false));
     $continueBtn.addEventListener('click', () => startGame(true));
-    $restartBtn.addEventListener('click', () => {
-      resetToIdle();
-      updateStartOverlay();
-      startGame(false);
-    });
+    $restartBtn.addEventListener('click', () => startGame(false));
+    if ($continueBtnEnd) $continueBtnEnd.addEventListener('click', () => startGame(true));
 
     if ($historyBtnStart) $historyBtnStart.addEventListener('click', () => openHistory());
     if ($historyBtnEnd) $historyBtnEnd.addEventListener('click', () => openHistory());
