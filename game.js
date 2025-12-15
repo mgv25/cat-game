@@ -749,10 +749,10 @@
         angle = Math.atan2(dy, dx) - Math.PI / 2;
       }
 
-      // Draw emoji with rotation
+      // Draw emoji with rotation (flipped 180 degrees)
       ctx.save();
       ctx.translate(drawX, drawY);
-      ctx.rotate(angle);
+      ctx.rotate(angle + Math.PI); // Add 180 degrees to flip the emoji
       ctx.font = `${LIZARD_SIZE}px Arial, "Apple Color Emoji", "Segoe UI Emoji"`;
       ctx.fillStyle = '#000';
       ctx.fillText(LIZARD_EMOJI, 0, 0);
