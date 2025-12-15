@@ -1384,7 +1384,7 @@
     ratTargetCheeseIndex = randomAlive.index;
     const targetCheese = randomAlive.cheese;
 
-    // Calculate difficulty-adjusted animation duration (1.5x faster than mouse)
+    // Calculate difficulty-adjusted animation duration (1.1x faster than mouse)
     let baseAnimationDuration;
     
     if (levelMode === 'fixed') {
@@ -1397,7 +1397,7 @@
       baseAnimationDuration = Math.floor(1500 * difficultyFactor);
     }
     
-    const animationDuration = Math.floor(baseAnimationDuration / 1.5); // 1.5x faster
+    const animationDuration = Math.floor(baseAnimationDuration / 1.1); // 1.1x faster
 
     // Minimal hitbox increase for faster rats
     const speedRatio = 1500 / animationDuration;
