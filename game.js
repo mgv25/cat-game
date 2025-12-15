@@ -66,6 +66,7 @@
   const $settingsBtn = document.getElementById('settingsBtn');
   const $settingsOverlay = document.getElementById('settingsOverlay');
   const $settingsCloseBtn = document.getElementById('settingsCloseBtn');
+  const $resetSettingsBtn = document.getElementById('resetSettingsBtn');
 
   /** @type {'idle'|'running'|'paused'|'ended'} */
   let status = 'idle';
@@ -362,6 +363,23 @@
 
   function closeSettings() {
     setOverlay($settingsOverlay, false);
+  }
+
+  function resetSettings() {
+    // Reset level mode to default
+    levelMode = 'fixed';
+    saveLevelMode('fixed');
+    
+    // Update segmented control UI
+    const segmentButtons = document.querySelectorAll('.segmentButton');
+    segmentButtons.forEach(button => {
+      const value = button.getAttribute('data-value');
+      if (value === 'fixed') {
+        button.classList.add('active');
+      } else {
+        button.classList.remove('active');
+      }
+    });
   }
 
   function initSegmentedControl() {
@@ -1790,6 +1808,7 @@
 
     if ($settingsBtn) $settingsBtn.addEventListener('click', () => openSettings());
     if ($settingsCloseBtn) $settingsCloseBtn.addEventListener('click', () => closeSettings());
+    if ($resetSettingsBtn) $resetSettingsBtn.addEventListener('click', () => resetSettings());
     if ($settingsOverlay) {
       $settingsOverlay.addEventListener('click', (ev) => {
         if (ev.target === $settingsOverlay) closeSettings();
