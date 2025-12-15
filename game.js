@@ -283,7 +283,7 @@
               <div class="historyLine1">Очки: ${h.score} · Время: ${h.survivalSeconds}с · Уровень: ${h.level}</div>
               <div class="historyLine2">${formatTs(h.ts)}</div>
             </div>
-            ${h.isBestScore ? '<span class="badge">Рекорд счёта</span>' : '<span></span>'}
+            ${h.isBestScore ? '<span class="badge">Рекорд очков</span>' : '<span></span>'}
             ${h.isBestLevel ? '<span class="badge">Рекорд уровня</span>' : '<span></span>'}
           </div>
         `;
