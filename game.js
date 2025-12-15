@@ -12,6 +12,8 @@
   const HIT_SOUND_SRC = './assets/sounds/hit.mp3';
   const MISS_SOUND_SRC = './assets/sounds/miss.mp3';
   const CHEESE_SOUND_SRC = './assets/sounds/cheese.mp3';
+  const MOUSE_EMOJI = '🐁';
+  const CAT_EMOJI = '🐈';
 
   const $score = document.getElementById('score');
   const $survivalTime = document.getElementById('survivalTime');
@@ -76,7 +78,7 @@
   let effects = [];
 
   // Canvas emoji sizes
-  const MOUSE_SIZE = 64;
+  const MOUSE_SIZE = 32;
   const CHEESE_SIZE = 52;
   const CHEESE_LIFE_SIZE = 40;
   const CAT_SIZE = 56;
@@ -363,7 +365,7 @@
       ctx.rotate(angle);
       ctx.font = `${MOUSE_SIZE}px Arial, "Apple Color Emoji", "Segoe UI Emoji"`;
       ctx.fillStyle = '#000';
-      ctx.fillText('🐭', 0, 0);
+      ctx.fillText(MOUSE_EMOJI, 0, 0);
       ctx.restore();
     }
 
@@ -383,7 +385,7 @@
       try {
         ctx.font = `${CAT_SIZE}px Arial, "Apple Color Emoji", "Segoe UI Emoji"`;
         ctx.fillStyle = '#000';
-        ctx.fillText('😺', catPos.xPx, catPos.yPx);
+        ctx.fillText(CAT_EMOJI, catPos.xPx, catPos.yPx);
       } catch (e) {
         console.error('Cat render error:', e);
       }
