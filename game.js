@@ -33,6 +33,10 @@
   const $resultsOverlay = document.getElementById('resultsOverlay');
   const $resultsCloseBtn = document.getElementById('resultsCloseBtn');
   const $resultsList = document.getElementById('resultsList');
+  const $settingsBtn = document.getElementById('settingsBtn');
+  const $settingsOverlay = document.getElementById('settingsOverlay');
+  const $settingsCloseBtn = document.getElementById('settingsCloseBtn');
+  const $resetRecordsBtn = document.getElementById('resetRecordsBtn');
 
   /** @type {'idle'|'running'|'paused'|'ended'} */
   let status = 'idle';
@@ -257,6 +261,34 @@
 
   function closeResults() {
     setOverlay($resultsOverlay, false);
+  }
+
+  function openSettings() {
+    if (!(status === 'idle' || status === 'ended')) return;
+    closeResults();
+    setOverlay($settingsOverlay, true);
+  }
+
+  function closeSettings() {
+    setOverlay($settingsOverlay, false);
+  }
+
+  function resetRecords() {
+    bestScore = 0;
+    bestStreak = 0;
+
+    // Сбрасываем и “снимки” на старт раунда, чтобы новые рекорды считались корректно.
+    bestScoreAtRoundStart = 0;
+    bestStreakAtRoundStart = 0;
+
+    try {
+      window.localStorage.removeItem(BEST_SCORE_KEY);
+      window.localStorage.removeItem(BEST_STREAK_KEY);
+    } catch {
+      // ignore
+    }
+
+    updateHud();
   }
 
   function onCenterHudButtonClick() {
@@ -541,6 +573,7 @@
     setOverlay($startOverlay, false);
     setOverlay($endOverlay, false);
     closeResults();
+    closeSettings();
 
     updateHud();
     startTick();
@@ -664,6 +697,15 @@
     if ($resultsOverlay) {
       $resultsOverlay.addEventListener('click', (ev) => {
         if (ev.target === $resultsOverlay) closeResults();
+      });
+    }
+
+    if ($settingsBtn) $settingsBtn.addEventListener('click', () => openSettings());
+    if ($settingsCloseBtn) $settingsCloseBtn.addEventListener('click', () => closeSettings());
+    if ($resetRecordsBtn) $resetRecordsBtn.addEventListener('click', () => resetRecords());
+    if ($settingsOverlay) {
+      $settingsOverlay.addEventListener('click', (ev) => {
+        if (ev.target === $settingsOverlay) closeSettings();
       });
     }
 

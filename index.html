@@ -45,6 +45,7 @@
           <h1 class="title">Кот ловит мышь</h1>
           <p class="subtitle">Лови как можно больше мышей за 60 секунд.</p>
           <button id="startBtn" class="btn" type="button">Старт</button>
+          <button id="settingsBtn" class="btn btnSecondary" type="button">Настройки ⚙️</button>
         </div>
       </section>
 
@@ -72,6 +73,16 @@
             <button id="resultsCloseBtn" class="btn btnSmall" type="button">Закрыть</button>
           </div>
           <div id="resultsList" class="resultsList" aria-label="История игр"></div>
+        </div>
+      </section>
+
+      <section id="settingsOverlay" class="overlay hidden" aria-label="Настройки" role="dialog" aria-modal="true">
+        <div class="overlayCard resultsCard">
+          <div class="resultsHeader">
+            <h2 class="title resultsTitle">Настройки</h2>
+            <button id="settingsCloseBtn" class="btn btnSmall" type="button">Закрыть</button>
+          </div>
+          <button id="resetRecordsBtn" class="btn btnDanger" type="button">Сбросить рекорды</button>
         </div>
       </section>
     </main>
