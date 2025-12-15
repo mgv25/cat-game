@@ -25,6 +25,8 @@
   const $level = document.getElementById('level');
   const $bestScoreHud = document.getElementById('bestScoreHud');
   const $savedLevelHud = document.getElementById('savedLevelHud');
+  const $bestScoreCard = document.getElementById('bestScoreCard');
+  const $savedLevelCard = document.getElementById('savedLevelCard');
 
   const $gameField = document.getElementById('gameField');
   const $canvas = document.getElementById('gameCanvas');
@@ -69,12 +71,14 @@
   let bestScore = 0;
   let bestScoreAtRoundStart = 0;
   let recordScoreShown = false; // Track if score record was already shown this round
+  let scoreRecordBeaten = false; // Track if score record was beaten in current game
 
   let lives = INITIAL_LIVES;
   let currentLevel = 0;
   let savedLevel = 0;
   let savedLevelAtRoundStart = 0;
   let recordLevelShown = false; // Track if level record was already shown this round
+  let levelRecordBeaten = false; // Track if level record was beaten in current game
   let gameStartMs = 0;
   let survivalTimeMs = 0;
   let pausedSurvivalMs = 0;
@@ -778,13 +782,14 @@
     if (status === 'running') {
       survivalSeconds = Math.floor((Date.now() - gameStartMs + survivalTimeMs) / 1000);
       const newLevel = calculateLevel(survivalSeconds);
-      // Check if level record was beaten (only when level actually increases)
-      if (newLevel !== currentLevel && !recordLevelShown && newLevel > savedLevelAtRoundStart) {
+      // Check if level record was beaten (only when level actually increases, skip if first game)
+      if (newLevel !== currentLevel && !recordLevelShown && newLevel > savedLevelAtRoundStart && savedLevelAtRoundStart > 0) {
         recordLevelShown = true;
         playRecordSound();
         // Show record effect at center of canvas
         const rect = $canvas.getBoundingClientRect();
         spawnRecordEffect(rect.width / 2, rect.height / 2, 'Рекорд уровня!');
+        if ($savedLevelCard) $savedLevelCard.classList.add('highlighted');
       }
       currentLevel = newLevel;
     } else if (status === 'paused') {
@@ -1400,6 +1405,9 @@
     savedLevelAtRoundStart = savedLevel;
     recordScoreShown = false;
     recordLevelShown = false;
+    // Remove highlight classes when starting new game
+    if ($bestScoreCard) $bestScoreCard.classList.remove('highlighted');
+    if ($savedLevelCard) $savedLevelCard.classList.remove('highlighted');
     status = 'running';
     unlockAudio();
 
@@ -1499,6 +1507,9 @@
     isUserPaused = false;
     recordScoreShown = false;
     recordLevelShown = false;
+    // Remove highlight classes when resetting to idle
+    if ($bestScoreCard) $bestScoreCard.classList.remove('highlighted');
+    if ($savedLevelCard) $savedLevelCard.classList.remove('highlighted');
     resetCheeseLifeStates(); // Reset cheese life states
 
     setOverlay($endOverlay, false);
@@ -1578,11 +1589,12 @@
         if (score > bestScore) {
           bestScore = score;
         }
-        // Check if score record was beaten
-        if (!recordScoreShown && score > bestScoreAtRoundStart) {
+        // Check if score record was beaten (skip if this is the first game)
+        if (!recordScoreShown && score > bestScoreAtRoundStart && bestScoreAtRoundStart > 0) {
           recordScoreShown = true;
           playRecordSound();
           spawnRecordEffect(currentMouseX, currentMouseY - 70, 'Рекорд очков!');
+          if ($bestScoreCard) $bestScoreCard.classList.add('highlighted');
         }
         updateHud();
 
@@ -1634,11 +1646,12 @@
         if (score > bestScore) {
           bestScore = score;
         }
-        // Check if score record was beaten
-        if (!recordScoreShown && score > bestScoreAtRoundStart) {
+        // Check if score record was beaten (skip if this is the first game)
+        if (!recordScoreShown && score > bestScoreAtRoundStart && bestScoreAtRoundStart > 0) {
           recordScoreShown = true;
           playRecordSound();
           spawnRecordEffect(currentRatX, currentRatY - 70, 'Рекорд очков!');
+          if ($bestScoreCard) $bestScoreCard.classList.add('highlighted');
         }
         updateHud();
 

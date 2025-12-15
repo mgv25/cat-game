@@ -51,6 +51,13 @@ body {
   flex-direction: column;
   justify-content: center;
   min-width: 0;
+  transition: background 0.3s, border-color 0.3s;
+}
+
+.hudCard.highlighted {
+  background: rgba(255, 220, 100, 0.25);
+  border-color: rgba(255, 200, 80, 0.4);
+  box-shadow: 0 0 12px rgba(255, 220, 100, 0.2);
 }
 
 .hudCardLabel {
@@ -84,6 +91,20 @@ body {
 
 .hudLives {
   letter-spacing: 1px;
+}
+
+.hudCardHighlighted {
+  background: rgba(255, 220, 100, 0.18) !important;
+  border-color: rgba(255, 200, 80, 0.35) !important;
+  box-shadow: 0 0 12px rgba(255, 220, 100, 0.25);
+}
+
+.hudCardHighlighted .hudCardLabel {
+  color: rgba(255, 240, 180, 0.95) !important;
+}
+
+.hudCardHighlighted .hudCardValue {
+  color: rgba(255, 235, 150, 1) !important;
 }
 
 #gameField {
