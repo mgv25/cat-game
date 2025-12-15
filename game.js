@@ -9,6 +9,9 @@
   const BASE_MAX_SPAWN_MS = 3000;
   const BASE_SHOW_DURATION_MS = 2000;
   const CHEESE_SPAWN_CHANCE = 0.15; // 15% chance to spawn cheese
+  const HIT_SOUND_SRC = './assets/sounds/hit.mp3';
+  const MISS_SOUND_SRC = './assets/sounds/miss.mp3';
+  const CHEESE_SOUND_SRC = './assets/sounds/cheese.mp3';
 
   const $score = document.getElementById('score');
   const $survivalTime = document.getElementById('survivalTime');
@@ -87,6 +90,125 @@
   let nextSpawnTimerId = null;
   /** @type {number | null} */
   let tickTimerId = null;
+
+  // Sound (best-effort; some browsers require user gesture to unlock audio)
+  let audioCtx = null;
+  let audioUnlocked = false;
+  const hitAudio = new Audio(HIT_SOUND_SRC);
+  const missAudio = new Audio(MISS_SOUND_SRC);
+  const cheeseAudio = new Audio(CHEESE_SOUND_SRC);
+  hitAudio.preload = 'auto';
+  missAudio.preload = 'auto';
+  cheeseAudio.preload = 'auto';
+  hitAudio.volume = 0.7;
+  missAudio.volume = 0.6;
+  cheeseAudio.volume = 0.7;
+
+  function ensureAudioCtx() {
+    if (audioCtx) return audioCtx;
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    if (!Ctx) return null;
+    audioCtx = new Ctx();
+    return audioCtx;
+  }
+
+  function unlockAudio() {
+    if (audioUnlocked) return;
+    audioUnlocked = true;
+
+    const ctx = ensureAudioCtx();
+    if (ctx && ctx.state === 'suspended') {
+      ctx.resume().catch(() => {});
+    }
+
+    // Try to unlock HTMLAudio by a silent, gesture-initiated play.
+    // Some browsers block audio until the first user interaction.
+    try {
+      const prevVolHit = hitAudio.volume;
+      const prevVolMiss = missAudio.volume;
+      const prevVolCheese = cheeseAudio.volume;
+      hitAudio.volume = 0;
+      missAudio.volume = 0;
+      cheeseAudio.volume = 0;
+      hitAudio.currentTime = 0;
+      missAudio.currentTime = 0;
+      cheeseAudio.currentTime = 0;
+      const p1 = hitAudio.play();
+      if (p1 && typeof p1.then === 'function') {
+        p1.then(() => hitAudio.pause()).catch(() => {});
+      } else {
+        hitAudio.pause();
+      }
+      const p2 = missAudio.play();
+      if (p2 && typeof p2.then === 'function') {
+        p2.then(() => missAudio.pause()).catch(() => {});
+      } else {
+        missAudio.pause();
+      }
+      const p3 = cheeseAudio.play();
+      if (p3 && typeof p3.then === 'function') {
+        p3.then(() => cheeseAudio.pause()).catch(() => {});
+      } else {
+        cheeseAudio.pause();
+      }
+      hitAudio.volume = prevVolHit;
+      missAudio.volume = prevVolMiss;
+      cheeseAudio.volume = prevVolCheese;
+    } catch {
+      // ignore
+    }
+  }
+
+  function playTone({ freqHz, durationMs, type = 'sine', gain = 0.04 }) {
+    const ctx = ensureAudioCtx();
+    if (!ctx) return;
+    if (ctx.state === 'suspended') {
+      ctx.resume().catch(() => {});
+    }
+
+    const osc = ctx.createOscillator();
+    const g = ctx.createGain();
+    osc.type = type;
+    osc.frequency.value = freqHz;
+    g.gain.value = 0.0001;
+    osc.connect(g);
+    g.connect(ctx.destination);
+
+    const now = ctx.currentTime;
+    const dur = durationMs / 1000;
+    g.gain.setValueAtTime(0.0001, now);
+    g.gain.linearRampToValueAtTime(gain, now + 0.01);
+    g.gain.exponentialRampToValueAtTime(0.0001, now + dur);
+
+    osc.start(now);
+    osc.stop(now + dur + 0.02);
+  }
+
+  function tryPlayAudio(audioEl) {
+    try {
+      audioEl.currentTime = 0;
+      const p = audioEl.play();
+      if (p && typeof p.catch === 'function') p.catch(() => {});
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  function playHitSound() {
+    const ok = tryPlayAudio(hitAudio);
+    if (!ok) playTone({ freqHz: 880, durationMs: 90, type: 'triangle', gain: 0.04 });
+  }
+
+  function playMissSound() {
+    const ok = tryPlayAudio(missAudio);
+    if (!ok) playTone({ freqHz: 220, durationMs: 110, type: 'sawtooth', gain: 0.03 });
+  }
+
+  function playCheeseSound() {
+    const ok = tryPlayAudio(cheeseAudio);
+    if (!ok) playTone({ freqHz: 660, durationMs: 90, type: 'square', gain: 0.03 });
+  }
 
   function clamp(n, min, max) {
     return Math.max(min, Math.min(max, n));
@@ -621,6 +743,7 @@
           if (wasAlive) {
             cheeseLifePositions[mouseTargetCheeseIndex].alive = false;
             lives = Math.max(0, lives - 1);
+            playMissSound();
             console.log(`Mouse grabbed cheese! Lives remaining: ${lives}`);
 
             // Check if game should end immediately
@@ -725,6 +848,7 @@
     score = 0;
     bestScoreAtRoundStart = bestScore;
     status = 'running';
+    unlockAudio();
 
     if (continueFromSaved && savedLevel > 0) {
       // Start from saved level
@@ -827,6 +951,7 @@
   function onPointerDown(ev) {
     if (status !== 'running') return;
     if (!isOrientationAllowed()) return;
+    unlockAudio();
 
     const rect = $canvas.getBoundingClientRect();
     const xPx = ev.clientX - rect.left;
@@ -867,6 +992,7 @@
 
       if (pointInHitbox(xPx, yPx, currentMouseX, currentMouseY, currentMouseHitbox)) {
         score += 1;
+        playHitSound();
         if (score > bestScore) {
           bestScore = score;
         }
@@ -892,6 +1018,7 @@
           if (!cheeseLifePositions[i].alive) {
             cheeseLifePositions[i].alive = true;
             lives++;
+            playCheeseSound();
             console.log(`Restored cheese at position ${i}, lives now: ${lives}`);
             break;
           }
