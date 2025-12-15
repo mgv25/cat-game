@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is a browser-based game where a cat catches mice. The game is written in vanilla JavaScript with no build process or dependencies. The UI is in Russian ("Кот ловит мышь" - "Cat Catches Mouse").
+This is a browser-based game where a cat catches mice. The game is written in vanilla JavaScript with no build process or dependencies. The UI is in Russian ("Лови мышей!" - "Catch the Mice!").
 
 ## Architecture
 
