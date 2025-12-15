@@ -71,6 +71,10 @@
   /** @type {{xPx:number, yPx:number} | null} */
   let catPos = null;
 
+  // Transient hit effects (puff + floating score) rendered on canvas
+  /** @type {Array<{type:'puff'|'score', xPx:number, yPx:number, text?:string, startMs:number, durationMs:number}>} */
+  let effects = [];
+
   // Canvas emoji sizes
   const MOUSE_SIZE = 64;
   const CHEESE_SIZE = 52;
@@ -267,6 +271,47 @@
 
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
+
+    // Draw transient effects (puff + +1) on top of scene.
+    const now = Date.now();
+    if (effects.length > 0) {
+      const nextEffects = [];
+      for (const e of effects) {
+        const t = (now - e.startMs) / e.durationMs;
+        if (t >= 1) continue;
+        nextEffects.push(e);
+
+        if (e.type === 'puff') {
+          // Match earlier DOM effect: scale 0.5 -> 1.35, fade in then out.
+          const scale = 0.5 + 0.85 * t;
+          const alpha = t < 0.3 ? t / 0.3 : 1 - (t - 0.3) / 0.7;
+
+          ctx.save();
+          ctx.globalAlpha = clamp(alpha, 0, 1);
+          ctx.translate(e.xPx, e.yPx);
+          ctx.scale(scale, scale);
+          ctx.font = `54px Arial, "Apple Color Emoji", "Segoe UI Emoji"`;
+          ctx.fillStyle = '#000';
+          ctx.fillText('💥', 0, 0);
+          ctx.restore();
+        } else if (e.type === 'score') {
+          // Match earlier DOM effect: slight scale up and float up ~26px, fade in/out.
+          const yOffset = -26 * t;
+          const scale = 0.95 + 0.10 * t;
+          const alpha = t < 0.25 ? t / 0.25 : 1 - (t - 0.25) / 0.75;
+
+          ctx.save();
+          ctx.globalAlpha = clamp(alpha, 0, 1);
+          ctx.translate(e.xPx, e.yPx + yOffset);
+          ctx.scale(scale, scale);
+          ctx.font = `28px Arial, "Apple Color Emoji", "Segoe UI Emoji"`;
+          ctx.fillStyle = 'rgba(255, 247, 190, 0.98)';
+          ctx.fillText(e.text || '+1', 0, 0);
+          ctx.restore();
+        }
+      }
+      effects = nextEffects;
+    }
 
     // Draw mouse if visible
     if (mouseVisible && mousePos) {
@@ -804,6 +849,14 @@
     }
   }
 
+  function spawnPuffEffect(xPx, yPx) {
+    effects.push({ type: 'puff', xPx, yPx, startMs: Date.now(), durationMs: 320 });
+  }
+
+  function spawnScoreEffect(xPx, yPx, text = '+1') {
+    effects.push({ type: 'score', xPx, yPx, text, startMs: Date.now(), durationMs: 520 });
+  }
+
   function showCheese() {
     if (status !== 'running') return;
     if (!isOrientationAllowed()) return;
@@ -993,6 +1046,9 @@
       if (pointInHitbox(xPx, yPx, currentMouseX, currentMouseY, currentMouseHitbox)) {
         score += 1;
         playHitSound();
+        // Hit effects (match old UI): 💥 + floating +1 at mouse position.
+        spawnPuffEffect(currentMouseX, currentMouseY);
+        spawnScoreEffect(currentMouseX, currentMouseY - 36, '+1');
         if (score > bestScore) {
           bestScore = score;
         }
