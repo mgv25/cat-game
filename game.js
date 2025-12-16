@@ -1358,7 +1358,6 @@
     let survivalSeconds = 0;
     if (status === 'running') {
       survivalSeconds = Math.floor((Date.now() - gameStartMs + survivalTimeMs) / 1000);
-      if (survivalSeconds > bestTime) bestTime = survivalSeconds;
 
       // Check if time record was beaten (skip if first game)
       if (!recordTimeShown && survivalSeconds > bestTimeAtRoundStart && bestTimeAtRoundStart > 0) {
@@ -1370,11 +1369,6 @@
         if ($timeCard) $timeCard.classList.add('highlightedTime');
       }
       const newLevel = calculateLevel(survivalSeconds);
-
-      // Keep saved (record) level in sync immediately, like bestScore does.
-      if (newLevel > savedLevel) {
-        saveLevelProgress(newLevel);
-      }
 
       // Check if level record was beaten (only when level actually increases, skip if first game)
       if (newLevel !== currentLevel && !recordLevelShown && newLevel > savedLevelAtRoundStart && savedLevelAtRoundStart > 0) {
@@ -1395,9 +1389,16 @@
 
     $score.textContent = String(score);
     $level.textContent = String(currentLevel);
-    if ($savedLevelHud) $savedLevelHud.textContent = String(savedLevel);
-    if ($bestScoreHud) $bestScoreHud.textContent = String(bestScore);
-    if ($bestTimeHud) $bestTimeHud.textContent = String(bestTime);
+
+    // While playing (or paused mid-round), keep showing record values from round start
+    // so player can compare against previous records.
+    // Freeze record display for the whole round lifecycle (running/paused/ended).
+    // New record values should appear only when a new game starts.
+    const freezeRecords = status !== 'idle';
+    if ($savedLevelHud) $savedLevelHud.textContent = String(freezeRecords ? savedLevelAtRoundStart : savedLevel);
+    if ($bestScoreHud) $bestScoreHud.textContent = String(freezeRecords ? bestScoreAtRoundStart : bestScore);
+    if ($bestTimeHud) $bestTimeHud.textContent = String(freezeRecords ? bestTimeAtRoundStart : bestTime);
+
     $survivalTime.textContent = String(survivalSeconds);
     $level.textContent = String(currentLevel);
   }
@@ -2446,10 +2447,15 @@
       saveLevelProgress(finalLevel);
     }
 
-    // Save best score if improved
-    if (bestScore > bestScoreAtRoundStart) saveBestScore();
-    // Save best time if improved
-    if (bestTime > bestTimeAtRoundStart) saveBestTime();
+    // Update + save records based on the finished round (do NOT update during the round).
+    if (score > bestScore) {
+      bestScore = score;
+      saveBestScore();
+    }
+    if (finalSurvivalSeconds > bestTime) {
+      bestTime = finalSurvivalSeconds;
+      saveBestTime();
+    }
 
     history.unshift({
       ts: Date.now(),
@@ -2466,8 +2472,9 @@
     $finalTime.textContent = String(finalSurvivalSeconds);
     $finalLevel.textContent = String(finalLevel);
     $finalScore.textContent = String(score);
-    $finalBest.textContent = String(bestScore);
-    if ($finalBestTime) $finalBestTime.textContent = String(bestTime);
+    // In end popup, show previous records if they were beaten this round (so player can compare).
+    $finalBest.textContent = String(scoreRecordBeaten ? bestScoreAtRoundStart : bestScore);
+    if ($finalBestTime) $finalBestTime.textContent = String(timeRecordBeaten ? bestTimeAtRoundStart : bestTime);
 
     updateHud();
     updateEndOverlay();
@@ -2581,9 +2588,6 @@
         // Hit effects (match old UI): 💥 + floating +1 at mouse position.
         spawnPuffEffect(currentMouseX, currentMouseY);
         spawnScoreEffect(currentMouseX, currentMouseY - 36, '+1');
-        if (score > bestScore) {
-          bestScore = score;
-        }
         // Check if score record was beaten (skip if this is the first game)
         if (!recordScoreShown && score > bestScoreAtRoundStart && bestScoreAtRoundStart > 0) {
           recordScoreShown = true;
@@ -2639,9 +2643,6 @@
         // Hit effects: 💥 + floating +3 at rat position.
         spawnPuffEffect(currentRatX, currentRatY);
         spawnScoreEffect(currentRatX, currentRatY - 36, '+3');
-        if (score > bestScore) {
-          bestScore = score;
-        }
         // Check if score record was beaten (skip if this is the first game)
         if (!recordScoreShown && score > bestScoreAtRoundStart && bestScoreAtRoundStart > 0) {
           recordScoreShown = true;
