@@ -319,8 +319,8 @@ body {
 
 .btnSettings {
   appearance: none;
-  border: 1px solid rgba(255, 255, 255, 0.22);
-  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid transparent;
+  background: transparent;
   color: rgba(255, 255, 255, 0.95);
   border-radius: 12px;
   padding: 8px 10px;
@@ -332,11 +332,16 @@ body {
 }
 
 .btnSettings:hover {
-  background: rgba(255, 255, 255, 0.18);
+  background: transparent;
 }
 
 .btnSettings:active {
   transform: translateY(1px);
+}
+
+.btnSettings:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(255, 235, 150, 0.22);
 }
 
 /* When the settings button is visible (pause button hidden), make it fill the whole HUD cell */
