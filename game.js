@@ -7,7 +7,6 @@
   const HISTORY_KEY = 'catMouseHistoryV2';
   const LEVEL_MODE_KEY = 'catMouseLevelMode';
   const SOUND_ENABLED_KEY = 'catMouseSoundEnabled';
-  const SPEED_DECREASE_KEY = 'catMouseSpeedDecrease';
   const HISTORY_LIMIT = 50;
   const HITBOX_SIZE_PX = 60; // Base hitbox size (reduced for difficulty)
   const HALF_HITBOX = HITBOX_SIZE_PX / 2;
@@ -88,7 +87,6 @@
   const $settingsOverlay = document.getElementById('settingsOverlay');
   const $settingsCloseBtn = document.getElementById('settingsCloseBtn');
   const $resetSettingsBtn = document.getElementById('resetSettingsBtn');
-  const $speedDecreaseInput = document.getElementById('speedDecreaseInput');
 
   /** @type {'idle'|'running'|'paused'|'ended'} */
   let status = 'idle';
@@ -112,7 +110,7 @@
   let levelRecordBeaten = false; // Track if level record was beaten in current game
   let levelMode = 'fixed'; // 'fibonacci' or 'fixed' (10 seconds per level) - default is 'fixed'
   let soundEnabled = true; // Sound enabled by default
-  let speedDecreasePercent = 5; // Speed decrease percentage per level (default 5%)
+  // speedDecreasePercent setting removed: speed progression is now fixed/stepwise.
   let gameStartMs = 0;
   let survivalTimeMs = 0;
   let pausedSurvivalMs = 0;
@@ -572,10 +570,6 @@
 
   function openSettings() {
     if (!(status === 'idle' || status === 'ended')) return;
-    // Update speed decrease input value when opening settings
-    if ($speedDecreaseInput) {
-      $speedDecreaseInput.value = String(speedDecreasePercent);
-    }
     setOverlay($settingsOverlay, true);
   }
 
@@ -591,10 +585,6 @@
     // Reset sound to default (enabled)
     soundEnabled = true;
     saveSoundEnabled(true);
-    
-    // Reset speed decrease to default (5%)
-    speedDecreasePercent = 5;
-    saveSpeedDecrease(5);
     
     // Update segmented control UI
     const segmentButtons = document.querySelectorAll('.segmentButton');
@@ -617,10 +607,6 @@
       }
     });
     
-    // Update speed decrease input
-    if ($speedDecreaseInput) {
-      $speedDecreaseInput.value = '5';
-    }
   }
 
   function initSegmentedControl() {
@@ -670,44 +656,6 @@
           saveSoundEnabled(value === 'on');
         }
       });
-    });
-  }
-
-  function initSpeedDecreaseInput() {
-    if (!$speedDecreaseInput) return;
-    
-    // Ensure speedDecreasePercent has a valid value (should be set by loadSpeedDecrease)
-    if (speedDecreasePercent === undefined || speedDecreasePercent === null) {
-      speedDecreasePercent = 5; // Default: 5%
-    }
-    
-    // Set initial value from loaded settings
-    $speedDecreaseInput.value = String(speedDecreasePercent);
-    
-    // Add change handler
-    $speedDecreaseInput.addEventListener('input', () => {
-      const value = Number($speedDecreaseInput.value);
-      
-      // Validate: must be between -99 and 99
-      if (Number.isFinite(value) && value >= -99 && value <= 99) {
-        saveSpeedDecrease(Math.floor(value));
-      } else {
-        // If invalid, revert to current saved value
-        $speedDecreaseInput.value = String(speedDecreasePercent);
-      }
-    });
-    
-    // Also handle blur to ensure value is saved even if user types and leaves
-    $speedDecreaseInput.addEventListener('blur', () => {
-      const value = Number($speedDecreaseInput.value);
-      
-      if (Number.isFinite(value) && value >= -99 && value <= 99) {
-        saveSpeedDecrease(Math.floor(value));
-        $speedDecreaseInput.value = String(speedDecreasePercent);
-      } else {
-        // Revert to saved value if invalid
-        $speedDecreaseInput.value = String(speedDecreasePercent);
-      }
     });
   }
 
@@ -1220,38 +1168,6 @@
     try {
       window.localStorage.setItem(SOUND_ENABLED_KEY, String(enabled));
       soundEnabled = enabled;
-    } catch {
-      // ignore
-    }
-  }
-
-  function loadSpeedDecrease() {
-    try {
-      const raw = window.localStorage.getItem(SPEED_DECREASE_KEY);
-      if (raw === null || raw === '' || raw === undefined) {
-        // No value in localStorage, use default
-        speedDecreasePercent = 5; // Default: 5%
-        // Save default value to localStorage
-        saveSpeedDecrease(5);
-        return;
-      }
-      const n = Number(raw);
-      if (Number.isFinite(n) && n >= -99 && n <= 99) {
-        speedDecreasePercent = Math.floor(n);
-      } else {
-        speedDecreasePercent = 5; // Default: 5%
-        saveSpeedDecrease(5);
-      }
-    } catch {
-      speedDecreasePercent = 5; // Default: 5%
-      saveSpeedDecrease(5);
-    }
-  }
-
-  function saveSpeedDecrease(percent) {
-    try {
-      window.localStorage.setItem(SPEED_DECREASE_KEY, String(percent));
-      speedDecreasePercent = percent;
     } catch {
       // ignore
     }
@@ -2944,13 +2860,11 @@
     loadSavedLevel();
     loadLevelMode();
     loadSoundEnabled();
-    loadSpeedDecrease();
     loadHistory();
     updateStartOverlay();
     updateHud();
     bindEvents();
     initSegmentedControl();
-    initSpeedDecreaseInput();
     updateOrientationOverlay();
     if ($pauseBtn) $pauseBtn.style.display = 'none';
     if ($settingsBtn) $settingsBtn.style.display = 'block';
