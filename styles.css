@@ -77,6 +77,13 @@ body {
   box-shadow: 0 0 12px rgba(160, 190, 255, 0.18);
 }
 
+/* Total caught record (purple/lavender accent to match background) */
+.hudCard.highlightedCaught {
+  background: rgba(220, 180, 255, 0.16);
+  border-color: rgba(200, 160, 245, 0.32);
+  box-shadow: 0 0 12px rgba(220, 180, 255, 0.16);
+}
+
 .hudCardLabel {
   color: rgba(255, 255, 255, 0.72);
   font-size: 12px;
@@ -237,6 +244,11 @@ body {
   text-shadow: 0 0 12px rgba(160, 190, 255, 0.18);
 }
 
+.title.titleRecordCaught {
+  color: rgba(220, 190, 255, 0.96);
+  text-shadow: 0 0 12px rgba(220, 180, 255, 0.16);
+}
+
 .subtitle {
   margin: 8px 0;
   font-size: 16px;
@@ -258,9 +270,15 @@ body {
   text-shadow: 0 0 10px rgba(160, 190, 255, 0.12);
 }
 
+.subtitle.subtitleRecordCaught {
+  color: rgba(220, 190, 255, 0.92);
+  text-shadow: 0 0 10px rgba(220, 180, 255, 0.12);
+}
+
 .subtitle.subtitleRecordScore strong,
 .subtitle.subtitleRecordLevel strong,
-.subtitle.subtitleRecordTime strong {
+.subtitle.subtitleRecordTime strong,
+.subtitle.subtitleRecordCaught strong {
   color: inherit;
 }
 
@@ -466,6 +484,11 @@ body {
 .badge.badgeLevel {
   border-color: rgba(255, 200, 80, 0.35);
   background: rgba(255, 220, 100, 0.14);
+}
+
+.badge.badgeCaught {
+  border-color: rgba(200, 160, 245, 0.32);
+  background: rgba(220, 180, 255, 0.12);
 }
 
 

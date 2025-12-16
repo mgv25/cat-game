@@ -3,6 +3,7 @@
   const INITIAL_LIVES = 5;
   const BEST_SCORE_KEY = 'catMouseBestScore';
   const BEST_TIME_KEY = 'catMouseBestTime';
+  const BEST_TOTAL_CAUGHT_KEY = 'catMouseBestTotalCaught';
   const SAVED_LEVEL_KEY = 'catMouseSavedLevel';
   const HISTORY_KEY = 'catMouseHistoryV2';
   const LEVEL_MODE_KEY = 'catMouseLevelMode';
@@ -40,12 +41,14 @@
   const $level = document.getElementById('level');
   const $bestScoreHud = document.getElementById('bestScoreHud');
   const $savedLevelHud = document.getElementById('savedLevelHud');
-  const $bestScoreCard = document.getElementById('bestScoreCard');
   const $savedLevelCard = document.getElementById('savedLevelCard');
   const $scoreCard = document.getElementById('scoreCard');
   const $levelCard = document.getElementById('levelCard');
   const $bestTimeHud = document.getElementById('bestTimeHud');
   const $timeCard = document.getElementById('timeCard');
+  const $totalCaught = document.getElementById('totalCaught');
+  const $bestTotalCaughtHud = document.getElementById('bestTotalCaughtHud');
+  const $totalCaughtCard = document.getElementById('totalCaughtCard');
   const $hud = document.getElementById('hud');
 
   const $gameField = document.getElementById('gameField');
@@ -83,6 +86,9 @@
   const $finalTimeRow = document.getElementById('finalTimeRow');
   const $finalLevelRow = document.getElementById('finalLevelRow');
   const $finalScoreRow = document.getElementById('finalScoreRow');
+  const $finalTotalCaught = document.getElementById('finalTotalCaught');
+  const $finalBestTotalCaught = document.getElementById('finalBestTotalCaught');
+  const $finalTotalCaughtRow = document.getElementById('finalTotalCaughtRow');
   const $endTitle = document.getElementById('endTitle');
   const $confettiLayer = document.getElementById('confettiLayer');
 
@@ -107,6 +113,11 @@
   let bestTimeAtRoundStart = 0;
   let recordTimeShown = false; // Track if time record was already shown this round
   let timeRecordBeaten = false; // Track if time record was beaten in current game
+  let totalCaught = 0;
+  let bestTotalCaught = 0;
+  let bestTotalCaughtAtRoundStart = 0;
+  let recordTotalCaughtShown = false;
+  let totalCaughtRecordBeaten = false;
 
   let lives = INITIAL_LIVES;
   let currentLevel = 1;
@@ -487,7 +498,7 @@
     return Math.floor(Math.random() * (max - min + 1)) + min;
   }
 
-  /** @type {Array<{ts:number, score:number, survivalSeconds:number, level:number, isBestScore:boolean, isBestLevel:boolean, isBestTime:boolean}>} */
+  /** @type {Array<{ts:number, score:number, survivalSeconds:number, level:number, totalCaught:number, isBestScore:boolean, isBestLevel:boolean, isBestTime:boolean, isBestTotalCaught:boolean}>} */
   let history = [];
 
   function loadHistory() {
@@ -535,12 +546,13 @@
           h.isBestScore ? '<span class="badge badgeScore">Рекорд очков</span>' : '',
           h.isBestLevel ? '<span class="badge badgeLevel">Рекорд уровня</span>' : '',
           h.isBestTime ? '<span class="badge badgeTime">Рекорд времени</span>' : '',
+          h.isBestTotalCaught ? '<span class="badge badgeCaught">Рекорд поймано всего</span>' : '',
         ].filter(Boolean).join('');
 
         return `
           <div class="historyRow">
             <div class="historyMain">
-              <div class="historyLine1">Очки: ${h.score} · Время: ${h.survivalSeconds}с · Уровень: ${h.level}</div>
+              <div class="historyLine1">Очки: ${h.score} · Поймано: ${h.totalCaught} · Время: ${h.survivalSeconds}с · Уровень: ${h.level}</div>
               <div class="historyLine2">${formatTs(h.ts)}</div>
             </div>
             <div class="historyBadges">${badges}</div>
@@ -568,6 +580,10 @@
     // Reset best time
     bestTime = 0;
     saveBestTime();
+
+    // Reset best total caught
+    bestTotalCaught = 0;
+    saveBestTotalCaught();
     
     // Reset saved level
     savedLevel = 0;
@@ -1155,6 +1171,24 @@
     }
   }
 
+  function loadBestTotalCaught() {
+    try {
+      const raw = window.localStorage.getItem(BEST_TOTAL_CAUGHT_KEY);
+      const n = Number(raw);
+      bestTotalCaught = Number.isFinite(n) && n > 0 ? Math.floor(n) : 0;
+    } catch {
+      bestTotalCaught = 0;
+    }
+  }
+
+  function saveBestTotalCaught() {
+    try {
+      window.localStorage.setItem(BEST_TOTAL_CAUGHT_KEY, String(bestTotalCaught));
+    } catch {
+      // ignore
+    }
+  }
+
   function saveBestScore() {
     try {
       window.localStorage.setItem(BEST_SCORE_KEY, String(bestScore));
@@ -1443,6 +1477,7 @@
 
     $score.textContent = String(score);
     $level.textContent = String(currentLevel);
+    if ($totalCaught) $totalCaught.textContent = String(totalCaught);
 
     // While playing (or paused mid-round), keep showing record values from round start
     // so player can compare against previous records.
@@ -1452,6 +1487,7 @@
     if ($savedLevelHud) $savedLevelHud.textContent = String(freezeRecords ? savedLevelAtRoundStart : savedLevel);
     if ($bestScoreHud) $bestScoreHud.textContent = String(freezeRecords ? bestScoreAtRoundStart : bestScore);
     if ($bestTimeHud) $bestTimeHud.textContent = String(freezeRecords ? bestTimeAtRoundStart : bestTime);
+    if ($bestTotalCaughtHud) $bestTotalCaughtHud.textContent = String(freezeRecords ? bestTotalCaughtAtRoundStart : bestTotalCaught);
 
     $survivalTime.textContent = String(survivalSeconds);
     $level.textContent = String(currentLevel);
@@ -2452,9 +2488,11 @@
     hideCat();
 
     score = 0;
+    totalCaught = 0;
     missStreak = 0;
     bestScoreAtRoundStart = bestScore;
     bestTimeAtRoundStart = bestTime;
+    bestTotalCaughtAtRoundStart = bestTotalCaught;
     savedLevelAtRoundStart = savedLevel;
     recordScoreShown = false;
     recordLevelShown = false;
@@ -2462,10 +2500,12 @@
     scoreRecordBeaten = false;
     levelRecordBeaten = false;
     timeRecordBeaten = false;
+    recordTotalCaughtShown = false;
+    totalCaughtRecordBeaten = false;
     // Remove highlight classes when starting new game
-    if ($bestScoreCard) $bestScoreCard.classList.remove('highlighted', 'highlightedScore');
     if ($savedLevelCard) $savedLevelCard.classList.remove('highlighted');
     if ($timeCard) $timeCard.classList.remove('highlighted', 'highlightedTime');
+    if ($totalCaughtCard) $totalCaughtCard.classList.remove('highlighted', 'highlightedCaught');
     if ($scoreCard) $scoreCard.classList.remove('highlighted', 'highlightedScore');
     if ($levelCard) $levelCard.classList.remove('highlighted');
     status = 'running';
@@ -2519,16 +2559,18 @@
 
     status = 'ended';
 
-    const endedWithRecord = scoreRecordBeaten || levelRecordBeaten || timeRecordBeaten;
+    const endedWithRecord = scoreRecordBeaten || levelRecordBeaten || timeRecordBeaten || totalCaughtRecordBeaten;
     if ($endTitle) {
       $endTitle.textContent = endedWithRecord ? 'Игра окончена с рекордом!' : 'Игра окончена!';
       // If only one record type was beaten, tint the title accordingly; otherwise keep golden.
-      const typesCount = (scoreRecordBeaten ? 1 : 0) + (timeRecordBeaten ? 1 : 0) + (levelRecordBeaten ? 1 : 0);
+      const typesCount = (scoreRecordBeaten ? 1 : 0) + (timeRecordBeaten ? 1 : 0) + (levelRecordBeaten ? 1 : 0) + (totalCaughtRecordBeaten ? 1 : 0);
       const useScore = endedWithRecord && typesCount === 1 && scoreRecordBeaten;
       const useTime = endedWithRecord && typesCount === 1 && timeRecordBeaten;
-      $endTitle.classList.toggle('titleRecord', endedWithRecord && !useScore && !useTime);
+      const useCaught = endedWithRecord && typesCount === 1 && totalCaughtRecordBeaten;
+      $endTitle.classList.toggle('titleRecord', endedWithRecord && !useScore && !useTime && !useCaught);
       $endTitle.classList.toggle('titleRecordScore', useScore);
       $endTitle.classList.toggle('titleRecordTime', useTime);
+      $endTitle.classList.toggle('titleRecordCaught', useCaught);
     }
     if (endedWithRecord) {
       playEndWithRecordSound();
@@ -2559,15 +2601,21 @@
       bestTime = finalSurvivalSeconds;
       saveBestTime();
     }
+    if (totalCaught > bestTotalCaught) {
+      bestTotalCaught = totalCaught;
+      saveBestTotalCaught();
+    }
 
     history.unshift({
       ts: Date.now(),
       score,
       survivalSeconds: finalSurvivalSeconds,
       level: finalLevel,
+      totalCaught,
       isBestScore: score > bestScoreAtRoundStart,
       isBestLevel: finalLevel > savedLevelAtRoundStart,
       isBestTime: finalSurvivalSeconds > bestTimeAtRoundStart,
+      isBestTotalCaught: totalCaught > bestTotalCaughtAtRoundStart,
     });
     history = history.slice(0, HISTORY_LIMIT);
     saveHistory();
@@ -2575,14 +2623,17 @@
     $finalTime.textContent = String(finalSurvivalSeconds);
     $finalLevel.textContent = String(finalLevel);
     $finalScore.textContent = String(score);
+    if ($finalTotalCaught) $finalTotalCaught.textContent = String(totalCaught);
     // In end popup, show previous records if they were beaten this round (so player can compare).
     $finalBest.textContent = String(scoreRecordBeaten ? bestScoreAtRoundStart : bestScore);
     if ($finalBestTime) $finalBestTime.textContent = String(timeRecordBeaten ? bestTimeAtRoundStart : bestTime);
+    if ($finalBestTotalCaught) $finalBestTotalCaught.textContent = String(totalCaughtRecordBeaten ? bestTotalCaughtAtRoundStart : bestTotalCaught);
 
     // Highlight achieved results that beat records (use record colors).
     if ($finalTimeRow) $finalTimeRow.classList.toggle('subtitleRecordTime', timeRecordBeaten);
     if ($finalLevelRow) $finalLevelRow.classList.toggle('subtitleRecordLevel', levelRecordBeaten);
     if ($finalScoreRow) $finalScoreRow.classList.toggle('subtitleRecordScore', scoreRecordBeaten);
+    if ($finalTotalCaughtRow) $finalTotalCaughtRow.classList.toggle('subtitleRecordCaught', totalCaughtRecordBeaten);
 
     updateHud();
     updateEndOverlay();
@@ -2603,6 +2654,7 @@
 
     status = 'idle';
     score = 0;
+    totalCaught = 0;
     missStreak = 0;
     lives = INITIAL_LIVES;
     currentLevel = 1;
@@ -2615,10 +2667,12 @@
     scoreRecordBeaten = false;
     levelRecordBeaten = false;
     timeRecordBeaten = false;
+    recordTotalCaughtShown = false;
+    totalCaughtRecordBeaten = false;
     // Remove highlight classes when resetting to idle
-    if ($bestScoreCard) $bestScoreCard.classList.remove('highlighted', 'highlightedScore');
     if ($savedLevelCard) $savedLevelCard.classList.remove('highlighted');
     if ($timeCard) $timeCard.classList.remove('highlighted', 'highlightedTime');
+    if ($totalCaughtCard) $totalCaughtCard.classList.remove('highlighted', 'highlightedCaught');
     if ($scoreCard) $scoreCard.classList.remove('highlighted', 'highlightedScore');
     if ($levelCard) $levelCard.classList.remove('highlighted');
     resetCheeseLifeStates(); // Reset cheese life states
@@ -2695,6 +2749,7 @@
 
       if (pointInHitbox(xPx, yPx, currentMouseX, currentMouseY, currentMouseHitbox)) {
         score += 1;
+        totalCaught += 1;
         playHitSound();
         // Hit effects (match old UI): 💥 + floating +1 at mouse position.
         spawnPuffEffect(currentMouseX, currentMouseY);
@@ -2707,6 +2762,15 @@
           spawnRecordEffect(currentMouseX, currentMouseY - 70, 'Рекорд очков!', 'rgba(150, 255, 180, 0.95)');
           // Highlight current score (top row), not the record card (which shows previous record)
           if ($scoreCard) $scoreCard.classList.add('highlightedScore');
+        }
+
+        // Total caught record (any animal counts)
+        if (!recordTotalCaughtShown && totalCaught > bestTotalCaughtAtRoundStart && bestTotalCaughtAtRoundStart > 0) {
+          recordTotalCaughtShown = true;
+          totalCaughtRecordBeaten = true;
+          playRecordSound();
+          spawnRecordEffect(currentMouseX, currentMouseY - 90, 'Рекорд поймано!', 'rgba(220, 190, 255, 0.92)');
+          if ($totalCaughtCard) $totalCaughtCard.classList.add('highlightedCaught');
         }
         updateHud();
 
@@ -2752,6 +2816,7 @@
 
       if (pointInHitbox(xPx, yPx, currentRatX, currentRatY, currentRatHitbox)) {
         score += 3; // Rat gives +3 points
+        totalCaught += 1;
         playHitSound();
         // Hit effects: 💥 + floating +3 at rat position.
         spawnPuffEffect(currentRatX, currentRatY);
@@ -2763,6 +2828,14 @@
           playRecordSound();
           spawnRecordEffect(currentRatX, currentRatY - 70, 'Рекорд очков!', 'rgba(150, 255, 180, 0.95)');
           if ($scoreCard) $scoreCard.classList.add('highlightedScore');
+        }
+
+        if (!recordTotalCaughtShown && totalCaught > bestTotalCaughtAtRoundStart && bestTotalCaughtAtRoundStart > 0) {
+          recordTotalCaughtShown = true;
+          totalCaughtRecordBeaten = true;
+          playRecordSound();
+          spawnRecordEffect(currentRatX, currentRatY - 90, 'Рекорд поймано!', 'rgba(220, 190, 255, 0.92)');
+          if ($totalCaughtCard) $totalCaughtCard.classList.add('highlightedCaught');
         }
         updateHud();
 
@@ -2808,10 +2881,18 @@
 
       if (pointInHitbox(xPx, yPx, currentLizardX, currentLizardY, currentLizardHitbox)) {
         score -= 1; // Lizard gives -1 points (penalty)
+        totalCaught += 1;
         playLizardSound();
         // Hit effects: 💥 + floating -1 at lizard position.
         spawnPuffEffect(currentLizardX, currentLizardY);
         spawnPenaltyEffect(currentLizardX, currentLizardY - 36, '-1');
+        if (!recordTotalCaughtShown && totalCaught > bestTotalCaughtAtRoundStart && bestTotalCaughtAtRoundStart > 0) {
+          recordTotalCaughtShown = true;
+          totalCaughtRecordBeaten = true;
+          playRecordSound();
+          spawnRecordEffect(currentLizardX, currentLizardY - 90, 'Рекорд поймано!', 'rgba(220, 190, 255, 0.92)');
+          if ($totalCaughtCard) $totalCaughtCard.classList.add('highlightedCaught');
+        }
         updateHud();
 
         // Caught the escaping lizard!
@@ -2855,10 +2936,18 @@
 
       if (pointInHitbox(xPx, yPx, currentBeeX, currentBeeY, currentBeeHitbox)) {
         score -= 3; // Bee gives -3 points (penalty)
+        totalCaught += 1;
         playBeeSound();
         // Hit effects: 💥 + floating -3 at bee position.
         spawnPuffEffect(currentBeeX, currentBeeY);
         spawnPenaltyEffect(currentBeeX, currentBeeY - 36, '-3');
+        if (!recordTotalCaughtShown && totalCaught > bestTotalCaughtAtRoundStart && bestTotalCaughtAtRoundStart > 0) {
+          recordTotalCaughtShown = true;
+          totalCaughtRecordBeaten = true;
+          playRecordSound();
+          spawnRecordEffect(currentBeeX, currentBeeY - 90, 'Рекорд поймано!', 'rgba(220, 190, 255, 0.92)');
+          if ($totalCaughtCard) $totalCaughtCard.classList.add('highlightedCaught');
+        }
         updateHud();
 
         // Caught the escaping bee!
@@ -2972,6 +3061,7 @@
     setupCanvas();
     loadBestScore();
     loadBestTime();
+    loadBestTotalCaught();
     loadSavedLevel();
     loadLevelMode();
     loadSoundEnabled();
