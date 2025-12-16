@@ -362,6 +362,37 @@ body {
   transform: none;
 }
 
+.settingsInput {
+  width: 100%;
+  padding: 10px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.92);
+  font-size: 15px;
+  font-weight: 600;
+  font-family: inherit;
+  transition: background 0.2s, border-color 0.2s;
+}
+
+.settingsInput:focus {
+  outline: none;
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+.settingsInput::-webkit-inner-spin-button,
+.settingsInput::-webkit-outer-spin-button {
+  opacity: 1;
+}
+
+.settingsHint {
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 13px;
+  margin-top: 6px;
+  line-height: 1.4;
+}
+
 @media (max-width: 360px) {
   :root {
     --hud-height: 118px;
