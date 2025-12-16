@@ -498,9 +498,11 @@
   function formatTs(ts) {
     try {
       const d = new Date(ts);
-      return d
+      const date = d
         .toLocaleDateString('ru-RU', { day: '2-digit', month: 'long', year: 'numeric' })
         .replace(/\s?г\.?$/, '');
+      const time = d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+      return `${date}, ${time}`;
     } catch {
       return '';
     }
