@@ -62,6 +62,7 @@
   const $historyBtnEnd = document.getElementById('historyBtnEnd');
   const $historyOverlay = document.getElementById('historyOverlay');
   const $historyCloseBtn = document.getElementById('historyCloseBtn');
+  const $historyResetRecordsBtn = document.getElementById('historyResetRecordsBtn');
   const $historyList = document.getElementById('historyList');
 
   const $finalTime = document.getElementById('finalTime');
@@ -428,6 +429,22 @@
 
   function closeHistory() {
     setOverlay($historyOverlay, false);
+  }
+
+  function resetRecords() {
+    // Reset best score
+    bestScore = 0;
+    saveBestScore();
+    
+    // Reset saved level
+    savedLevel = 0;
+    saveLevelProgress(0);
+    
+    // Update HUD
+    updateHud();
+    
+    // Re-render history to update badges
+    renderHistory();
   }
 
   function openSettings() {
@@ -2547,6 +2564,7 @@
     if ($historyBtnStart) $historyBtnStart.addEventListener('click', () => openHistory());
     if ($historyBtnEnd) $historyBtnEnd.addEventListener('click', () => openHistory());
     if ($historyCloseBtn) $historyCloseBtn.addEventListener('click', () => closeHistory());
+    if ($historyResetRecordsBtn) $historyResetRecordsBtn.addEventListener('click', () => resetRecords());
     if ($historyOverlay) {
       $historyOverlay.addEventListener('click', (ev) => {
         if (ev.target === $historyOverlay) closeHistory();
