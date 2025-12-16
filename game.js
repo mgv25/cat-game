@@ -31,6 +31,9 @@
   const RAT_SPAWN_CHANCE = 0.12; // 12% chance to spawn rat
   const LIZARD_SPAWN_CHANCE = 0.08; // 8% chance to spawn lizard
   const BEE_SPAWN_CHANCE = 0.05; // 5% chance to spawn bee
+  // Difficulty gates: harmful animals appear only from these levels
+  const LIZARD_UNLOCK_LEVEL = 5;
+  const BEE_UNLOCK_LEVEL = 9;
 
   const $score = document.getElementById('score');
   const $survivalTime = document.getElementById('survivalTime');
@@ -1613,11 +1616,24 @@
           ? rand  // If all lives, use full range
           : (rand - CHEESE_SPAWN_CHANCE) / (1 - CHEESE_SPAWN_CHANCE); // Otherwise normalize
         
-        // Calculate cumulative probabilities for animals (60% + 12% + 8% + 5% = 85%)
-        const totalAnimalChance = MOUSE_SPAWN_CHANCE + RAT_SPAWN_CHANCE + LIZARD_SPAWN_CHANCE + BEE_SPAWN_CHANCE;
-        const mouseThreshold = MOUSE_SPAWN_CHANCE / totalAnimalChance;
-        const ratThreshold = (MOUSE_SPAWN_CHANCE + RAT_SPAWN_CHANCE) / totalAnimalChance;
-        const lizardThreshold = (MOUSE_SPAWN_CHANCE + RAT_SPAWN_CHANCE + LIZARD_SPAWN_CHANCE) / totalAnimalChance;
+        // Gate harmful animals by difficulty (level) and renormalize animal probabilities.
+        const lizardAllowed = currentLevel >= LIZARD_UNLOCK_LEVEL;
+        const beeAllowed = currentLevel >= BEE_UNLOCK_LEVEL;
+
+        const mouseW = MOUSE_SPAWN_CHANCE;
+        const ratW = RAT_SPAWN_CHANCE;
+        const lizardW = lizardAllowed ? LIZARD_SPAWN_CHANCE : 0;
+        const beeW = beeAllowed ? BEE_SPAWN_CHANCE : 0;
+
+        const totalAnimalChance = mouseW + ratW + lizardW + beeW;
+        if (totalAnimalChance <= 0) {
+          showMouse();
+          return;
+        }
+
+        const mouseThreshold = mouseW / totalAnimalChance;
+        const ratThreshold = (mouseW + ratW) / totalAnimalChance;
+        const lizardThreshold = (mouseW + ratW + lizardW) / totalAnimalChance;
         
         if (animalRand < mouseThreshold) {
           // Mouse spawn (60% of total, ~70.6% of animals)
