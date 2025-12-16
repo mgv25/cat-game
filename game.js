@@ -518,7 +518,7 @@
       .map((h) => {
         const badges = [
           h.isBestScore ? '<span class="badge badgeScore">Рекорд очков</span>' : '',
-          h.isBestLevel ? '<span class="badge">Рекорд уровня</span>' : '',
+          h.isBestLevel ? '<span class="badge badgeLevel">Рекорд уровня</span>' : '',
           h.isBestTime ? '<span class="badge badgeTime">Рекорд времени</span>' : '',
         ].filter(Boolean).join('');
 

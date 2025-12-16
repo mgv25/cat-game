@@ -442,6 +442,11 @@ body {
   background: rgba(160, 190, 255, 0.14);
 }
 
+.badge.badgeLevel {
+  border-color: rgba(255, 200, 80, 0.35);
+  background: rgba(255, 220, 100, 0.14);
+}
+
 
 .settingsContent {
   margin-top: 12px;
