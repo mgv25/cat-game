@@ -41,6 +41,8 @@
   const $savedLevelHud = document.getElementById('savedLevelHud');
   const $bestScoreCard = document.getElementById('bestScoreCard');
   const $savedLevelCard = document.getElementById('savedLevelCard');
+  const $scoreCard = document.getElementById('scoreCard');
+  const $levelCard = document.getElementById('levelCard');
   const $bestTimeHud = document.getElementById('bestTimeHud');
   const $timeCard = document.getElementById('timeCard');
   const $hud = document.getElementById('hud');
@@ -1378,7 +1380,8 @@
         // Show record effect at center of canvas
         const rect = $canvas.getBoundingClientRect();
         spawnRecordEffect(rect.width / 2, rect.height / 2, 'Рекорд уровня!', 'rgba(255, 220, 100, 0.98)');
-        if ($savedLevelCard) $savedLevelCard.classList.add('highlighted');
+        // Highlight current level (top row), not the saved record card (which shows previous record)
+        if ($levelCard) $levelCard.classList.add('highlighted');
       }
       currentLevel = newLevel;
     } else if (status === 'paused') {
@@ -2365,6 +2368,8 @@
     if ($bestScoreCard) $bestScoreCard.classList.remove('highlighted', 'highlightedScore');
     if ($savedLevelCard) $savedLevelCard.classList.remove('highlighted');
     if ($timeCard) $timeCard.classList.remove('highlighted', 'highlightedTime');
+    if ($scoreCard) $scoreCard.classList.remove('highlighted', 'highlightedScore');
+    if ($levelCard) $levelCard.classList.remove('highlighted');
     status = 'running';
     unlockAudio();
 
@@ -2510,6 +2515,8 @@
     if ($bestScoreCard) $bestScoreCard.classList.remove('highlighted', 'highlightedScore');
     if ($savedLevelCard) $savedLevelCard.classList.remove('highlighted');
     if ($timeCard) $timeCard.classList.remove('highlighted', 'highlightedTime');
+    if ($scoreCard) $scoreCard.classList.remove('highlighted', 'highlightedScore');
+    if ($levelCard) $levelCard.classList.remove('highlighted');
     resetCheeseLifeStates(); // Reset cheese life states
 
     setOverlay($endOverlay, false);
@@ -2594,7 +2601,8 @@
           scoreRecordBeaten = true;
           playRecordSound();
           spawnRecordEffect(currentMouseX, currentMouseY - 70, 'Рекорд очков!', 'rgba(150, 255, 180, 0.95)');
-          if ($bestScoreCard) $bestScoreCard.classList.add('highlightedScore');
+          // Highlight current score (top row), not the record card (which shows previous record)
+          if ($scoreCard) $scoreCard.classList.add('highlightedScore');
         }
         updateHud();
 
@@ -2649,7 +2657,7 @@
           scoreRecordBeaten = true;
           playRecordSound();
           spawnRecordEffect(currentRatX, currentRatY - 70, 'Рекорд очков!', 'rgba(150, 255, 180, 0.95)');
-          if ($bestScoreCard) $bestScoreCard.classList.add('highlightedScore');
+          if ($scoreCard) $scoreCard.classList.add('highlightedScore');
         }
         updateHud();
 
