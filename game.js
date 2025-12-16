@@ -977,6 +977,8 @@
       ctx.save();
       ctx.translate(drawX, drawY);
       ctx.rotate(angle);
+      // Mirror the rat horizontally to make it visually distinct from the mouse.
+      ctx.scale(-1, 1);
       ctx.font = `${RAT_SIZE}px Arial, "Apple Color Emoji", "Segoe UI Emoji"`;
       ctx.fillStyle = '#000';
       ctx.fillText(RAT_EMOJI, 0, 0);
