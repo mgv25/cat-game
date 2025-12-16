@@ -2,6 +2,7 @@
   const MAX_LIVES = 5;
   const INITIAL_LIVES = 5;
   const BEST_SCORE_KEY = 'catMouseBestScore';
+  const BEST_TIME_KEY = 'catMouseBestTime';
   const SAVED_LEVEL_KEY = 'catMouseSavedLevel';
   const HISTORY_KEY = 'catMouseHistoryV2';
   const LEVEL_MODE_KEY = 'catMouseLevelMode';
@@ -38,6 +39,8 @@
   const $savedLevelHud = document.getElementById('savedLevelHud');
   const $bestScoreCard = document.getElementById('bestScoreCard');
   const $savedLevelCard = document.getElementById('savedLevelCard');
+  const $bestTimeHud = document.getElementById('bestTimeHud');
+  const $timeCard = document.getElementById('timeCard');
 
   const $gameField = document.getElementById('gameField');
   const $canvas = document.getElementById('gameCanvas');
@@ -70,6 +73,7 @@
   const $finalLevel = document.getElementById('finalLevel');
   const $finalScore = document.getElementById('finalScore');
   const $finalBest = document.getElementById('finalBest');
+  const $finalBestTime = document.getElementById('finalBestTime');
   const $endTitle = document.getElementById('endTitle');
   const $confettiLayer = document.getElementById('confettiLayer');
 
@@ -91,6 +95,10 @@
   let bestScoreAtRoundStart = 0;
   let recordScoreShown = false; // Track if score record was already shown this round
   let scoreRecordBeaten = false; // Track if score record was beaten in current game
+  let bestTime = 0;
+  let bestTimeAtRoundStart = 0;
+  let recordTimeShown = false; // Track if time record was already shown this round
+  let timeRecordBeaten = false; // Track if time record was beaten in current game
 
   let lives = INITIAL_LIVES;
   let currentLevel = 1;
@@ -465,7 +473,7 @@
     return Math.floor(Math.random() * (max - min + 1)) + min;
   }
 
-  /** @type {Array<{ts:number, score:number, survivalSeconds:number, level:number, isBestScore:boolean, isBestLevel:boolean}>} */
+  /** @type {Array<{ts:number, score:number, survivalSeconds:number, level:number, isBestScore:boolean, isBestLevel:boolean, isBestTime:boolean}>} */
   let history = [];
 
   function loadHistory() {
@@ -515,6 +523,7 @@
             </div>
             ${h.isBestScore ? '<span class="badge">Рекорд очков</span>' : '<span></span>'}
             ${h.isBestLevel ? '<span class="badge">Рекорд уровня</span>' : '<span></span>'}
+            ${h.isBestTime ? '<span class="badge">Рекорд времени</span>' : '<span></span>'}
           </div>
         `;
       })
@@ -535,6 +544,10 @@
     // Reset best score
     bestScore = 0;
     saveBestScore();
+
+    // Reset best time
+    bestTime = 0;
+    saveBestTime();
     
     // Reset saved level
     savedLevel = 0;
@@ -1107,6 +1120,24 @@
     }
   }
 
+  function loadBestTime() {
+    try {
+      const raw = window.localStorage.getItem(BEST_TIME_KEY);
+      const n = Number(raw);
+      bestTime = Number.isFinite(n) && n > 0 ? Math.floor(n) : 0;
+    } catch {
+      bestTime = 0;
+    }
+  }
+
+  function saveBestTime() {
+    try {
+      window.localStorage.setItem(BEST_TIME_KEY, String(bestTime));
+    } catch {
+      // ignore
+    }
+  }
+
   function saveBestScore() {
     try {
       window.localStorage.setItem(BEST_SCORE_KEY, String(bestScore));
@@ -1390,10 +1421,23 @@
     $level.textContent = String(currentLevel);
     if ($savedLevelHud) $savedLevelHud.textContent = String(savedLevel);
     if ($bestScoreHud) $bestScoreHud.textContent = String(bestScore);
+    if ($bestTimeHud) $bestTimeHud.textContent = String(bestTime);
 
     let survivalSeconds = 0;
     if (status === 'running') {
       survivalSeconds = Math.floor((Date.now() - gameStartMs + survivalTimeMs) / 1000);
+      if (survivalSeconds > bestTime) bestTime = survivalSeconds;
+      if ($bestTimeHud) $bestTimeHud.textContent = String(bestTime);
+
+      // Check if time record was beaten (skip if first game)
+      if (!recordTimeShown && survivalSeconds > bestTimeAtRoundStart && bestTimeAtRoundStart > 0) {
+        recordTimeShown = true;
+        timeRecordBeaten = true;
+        playRecordSound();
+        const rect = $canvas.getBoundingClientRect();
+        spawnRecordEffect(rect.width / 2, rect.height / 2 - 40, 'Рекорд времени!');
+        if ($timeCard) $timeCard.classList.add('highlighted');
+      }
       const newLevel = calculateLevel(survivalSeconds);
       // Check if level record was beaten (only when level actually increases, skip if first game)
       if (newLevel !== currentLevel && !recordLevelShown && newLevel > savedLevelAtRoundStart && savedLevelAtRoundStart > 0) {
@@ -2352,14 +2396,18 @@
 
     score = 0;
     bestScoreAtRoundStart = bestScore;
+    bestTimeAtRoundStart = bestTime;
     savedLevelAtRoundStart = savedLevel;
     recordScoreShown = false;
     recordLevelShown = false;
+    recordTimeShown = false;
     scoreRecordBeaten = false;
     levelRecordBeaten = false;
+    timeRecordBeaten = false;
     // Remove highlight classes when starting new game
     if ($bestScoreCard) $bestScoreCard.classList.remove('highlighted');
     if ($savedLevelCard) $savedLevelCard.classList.remove('highlighted');
+    if ($timeCard) $timeCard.classList.remove('highlighted');
     status = 'running';
     unlockAudio();
 
@@ -2411,7 +2459,7 @@
 
     status = 'ended';
 
-    const endedWithRecord = scoreRecordBeaten || levelRecordBeaten;
+    const endedWithRecord = scoreRecordBeaten || levelRecordBeaten || timeRecordBeaten;
     if ($endTitle) {
       $endTitle.textContent = endedWithRecord ? 'Игра окончена с рекордом!' : 'Игра окончена!';
       $endTitle.classList.toggle('titleRecord', endedWithRecord);
@@ -2438,6 +2486,8 @@
 
     // Save best score if improved
     if (bestScore > bestScoreAtRoundStart) saveBestScore();
+    // Save best time if improved
+    if (bestTime > bestTimeAtRoundStart) saveBestTime();
 
     history.unshift({
       ts: Date.now(),
@@ -2446,6 +2496,7 @@
       level: finalLevel,
       isBestScore: score > bestScoreAtRoundStart,
       isBestLevel: finalLevel > savedLevelAtRoundStart,
+      isBestTime: finalSurvivalSeconds > bestTimeAtRoundStart,
     });
     history = history.slice(0, HISTORY_LIMIT);
     saveHistory();
@@ -2454,6 +2505,7 @@
     $finalLevel.textContent = String(finalLevel);
     $finalScore.textContent = String(score);
     $finalBest.textContent = String(bestScore);
+    if ($finalBestTime) $finalBestTime.textContent = String(bestTime);
 
     updateHud();
     updateEndOverlay();
@@ -2481,11 +2533,14 @@
     isUserPaused = false;
     recordScoreShown = false;
     recordLevelShown = false;
+    recordTimeShown = false;
     scoreRecordBeaten = false;
     levelRecordBeaten = false;
+    timeRecordBeaten = false;
     // Remove highlight classes when resetting to idle
     if ($bestScoreCard) $bestScoreCard.classList.remove('highlighted');
     if ($savedLevelCard) $savedLevelCard.classList.remove('highlighted');
+    if ($timeCard) $timeCard.classList.remove('highlighted');
     resetCheeseLifeStates(); // Reset cheese life states
 
     setOverlay($endOverlay, false);
@@ -2837,6 +2892,7 @@
   function init() {
     setupCanvas();
     loadBestScore();
+    loadBestTime();
     loadSavedLevel();
     loadLevelMode();
     loadSoundEnabled();
