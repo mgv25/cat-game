@@ -1011,7 +1011,7 @@
       if (raw === 'fixed' || raw === 'fibonacci') {
         levelMode = raw;
       } else {
-        levelMode = 'fixed'; // Default: linear 10 seconds per level
+        levelMode = 'fixed'; // Default: linear 20 seconds per level
       }
     } catch {
       levelMode = 'fixed'; // Default: linear 10 seconds per level
@@ -1098,8 +1098,8 @@
   function getLevelTimeSeconds(level) {
     if (level <= 1) return 0; // Level 1 is reached immediately
     if (levelMode === 'fixed') {
-      // Linear: each level requires 10 seconds (level 2 at 10s, level 3 at 20s, etc.)
-      return (level - 1) * 10;
+      // Linear: each level requires 20 seconds (level 2 at 20s, level 3 at 40s, etc.)
+      return (level - 1) * 20;
     } else {
       // Fibonacci mode (default): level 2 at 1s, level 3 at 2s, level 4 at 3s, etc.
       return fibonacci(level - 1);
