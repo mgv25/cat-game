@@ -125,8 +125,11 @@ body {
 }
 
 .overlay {
-  position: absolute;
-  inset: 0;
+  position: fixed;
+  left: 0;
+  right: 0;
+  top: var(--hud-height);
+  bottom: 0;
   display: flex;
   align-items: center;
   justify-content: center;
