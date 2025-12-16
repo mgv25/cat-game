@@ -1038,14 +1038,9 @@
     let lifespan = BASE_LIFESPAN_MS;
     
     // Calculate lifespan based on level progression
+    // Always decrease by 5% from previous level
     for (let i = 2; i <= level; i++) {
-      if (i <= 5) {
-        // Levels 2-5: decrease by 10% from previous level
-        lifespan = lifespan * 0.9;
-      } else {
-        // Level 6+: decrease by 5% from previous level
-        lifespan = lifespan * 0.95;
-      }
+      lifespan = lifespan * 0.95;
     }
     
     return Math.floor(lifespan);
