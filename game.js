@@ -7,6 +7,7 @@
   const HISTORY_KEY = 'catMouseHistoryV2';
   const LEVEL_MODE_KEY = 'catMouseLevelMode';
   const SOUND_ENABLED_KEY = 'catMouseSoundEnabled';
+  const CHEESE_END_MODE_KEY = 'catMouseCheeseEndMode';
   const HISTORY_LIMIT = 50;
   const HITBOX_SIZE_PX = 60; // Base hitbox size (reduced for difficulty)
   const HALF_HITBOX = HITBOX_SIZE_PX / 2;
@@ -112,6 +113,12 @@
   let levelRecordBeaten = false; // Track if level record was beaten in current game
   let levelMode = 'fixed'; // 'fibonacci' or 'fixed' (10 seconds per level) - default is 'fixed'
   let soundEnabled = true; // Sound enabled by default
+  /** @type {'end'|'continue'} */
+  let cheeseEndMode = 'end'; // Default: game ends when cheese runs out
+
+  // In "cheese continues" mode the game ends only after N missed mice/rats in a row.
+  const MISS_STREAK_LIMIT = 20;
+  let missStreak = 0;
   // speedDecreasePercent setting removed: speed progression is now fixed/stepwise.
   let gameStartMs = 0;
   let survivalTimeMs = 0;
@@ -587,6 +594,10 @@
     // Reset sound to default (enabled)
     soundEnabled = true;
     saveSoundEnabled(true);
+
+    // Reset cheese end behavior to default
+    cheeseEndMode = 'end';
+    saveCheeseEndMode('end');
     
     // Update segmented control UI
     const segmentButtons = document.querySelectorAll('.segmentButton');
@@ -602,6 +613,12 @@
         }
       } else if (setting === 'sound') {
         if (value === 'on') {
+          button.classList.add('active');
+        } else {
+          button.classList.remove('active');
+        }
+      } else if (setting === 'cheeseEnd') {
+        if (value === 'end') {
           button.classList.add('active');
         } else {
           button.classList.remove('active');
@@ -632,6 +649,12 @@
         } else {
           button.classList.remove('active');
         }
+      } else if (setting === 'cheeseEnd') {
+        if (value === cheeseEndMode) {
+          button.classList.add('active');
+        } else {
+          button.classList.remove('active');
+        }
       }
     });
     
@@ -656,9 +679,34 @@
           saveLevelMode(value);
         } else if (setting === 'sound') {
           saveSoundEnabled(value === 'on');
+        } else if (setting === 'cheeseEnd') {
+          saveCheeseEndMode(value);
         }
       });
     });
+  }
+
+  function loadCheeseEndMode() {
+    try {
+      const raw = window.localStorage.getItem(CHEESE_END_MODE_KEY);
+      if (raw === 'continue' || raw === 'end') {
+        cheeseEndMode = raw;
+      } else {
+        cheeseEndMode = 'end';
+      }
+    } catch {
+      cheeseEndMode = 'end';
+    }
+  }
+
+  /** @param {'end'|'continue'} mode */
+  function saveCheeseEndMode(mode) {
+    try {
+      window.localStorage.setItem(CHEESE_END_MODE_KEY, mode);
+      cheeseEndMode = mode;
+    } catch {
+      // ignore
+    }
   }
 
   function setupCanvas() {
@@ -1629,7 +1677,8 @@
 
   function animateMouseEscape() {
     if (!mouseVisible || !mousePos) return;
-    if (cheeseLifePositions.length === 0) return; // No cheese to steal
+    // If there is no alive cheese, still allow mouse to run (no stealing), so the
+    // "cheese continues" mode can keep going.
 
     // New mouse run: clear old timers and bump token so old callbacks become no-ops.
     const runToken = ++mouseRunToken;
@@ -1641,16 +1690,20 @@
     mouseEscaping = true;
     mouseHasGrabbedCheese = false;
 
-    // Pick a random alive cheese to target
+    // Pick a random alive cheese to target (if any)
     const aliveCheeses = cheeseLifePositions
       .map((cheese, index) => ({ cheese, index }))
       .filter(item => item.cheese.alive);
 
-    if (aliveCheeses.length === 0) return; // No alive cheese
-
-    const randomAlive = aliveCheeses[Math.floor(Math.random() * aliveCheeses.length)];
-    mouseTargetCheeseIndex = randomAlive.index;
-    const targetCheese = randomAlive.cheese;
+    const hasAliveCheese = aliveCheeses.length > 0;
+    let targetCheese = null;
+    if (hasAliveCheese) {
+      const randomAlive = aliveCheeses[Math.floor(Math.random() * aliveCheeses.length)];
+      mouseTargetCheeseIndex = randomAlive.index;
+      targetCheese = randomAlive.cheese;
+    } else {
+      mouseTargetCheeseIndex = -1;
+    }
 
     // Calculate difficulty-adjusted animation duration
     // IMPORTANT: Capture currentLevel at spawn time to prevent it from changing during animation
@@ -1679,8 +1732,8 @@
     const canvasRect = $canvas.getBoundingClientRect();
 
     // Target: first to the cheese, then below canvas
-    const cheeseX = targetCheese.xPx;
-    const cheeseY = targetCheese.yPx;
+    const cheeseX = hasAliveCheese ? targetCheese.xPx : clamp(mousePos.xPx + (Math.random() - 0.5) * canvasRect.width * 0.5, 0, canvasRect.width);
+    const cheeseY = hasAliveCheese ? targetCheese.yPx : clamp(mousePos.yPx + canvasRect.height * 0.35, 0, canvasRect.height);
     const finalY = canvasRect.height + 100; // Go below canvas
     const targetX = cheeseX;
     const targetY = finalY;
@@ -1777,14 +1830,16 @@
         playMissSound();
         console.log(`Mouse grabbed cheese! Lives remaining: ${lives}`);
 
-        // Check if game should end immediately
-        const aliveCheesesCount = cheeseLifePositions.filter(c => c.alive).length;
-        if (lives <= 0 || aliveCheesesCount === 0) {
-          console.log('Game Over - No more lives!');
-          clearIntervalTimer(mouseCheeseCheckIntervalId);
-          mouseCheeseCheckIntervalId = null;
-          mouseEscaping = false; // Stop animation
-          endGame();
+        // Check if game should end immediately (only in classic mode)
+        if (cheeseEndMode === 'end') {
+          const aliveCheesesCount = cheeseLifePositions.filter(c => c.alive).length;
+          if (lives <= 0 || aliveCheesesCount === 0) {
+            console.log('Game Over - No more lives!');
+            clearIntervalTimer(mouseCheeseCheckIntervalId);
+            mouseCheeseCheckIntervalId = null;
+            mouseEscaping = false; // Stop animation
+            endGame();
+          }
         }
       }
     }, 50);
@@ -1802,8 +1857,21 @@
       mouseEscaping = false;
       setMouseVisible(false);
 
-      // Steal the targeted cheese (this will check for game over)
-      stealCheese();
+      // Mouse escaped (not caught): count miss streak only in "continue" mode.
+      if (cheeseEndMode === 'continue') {
+        missStreak += 1;
+        if (missStreak >= MISS_STREAK_LIMIT) {
+          endGame();
+          return;
+        }
+      }
+
+      // Steal the targeted cheese (if any).
+      if (mouseTargetCheeseIndex >= 0) {
+        stealCheese();
+      } else {
+        updateHud();
+      }
 
       // Only schedule next mouse if game is still running
       if (status === 'running') {
@@ -1828,11 +1896,13 @@
 
     updateHud();
 
-    // Check if game should end (no more lives)
-    const aliveCheesesCount = cheeseLifePositions.filter(c => c.alive).length;
-    if (lives <= 0 || aliveCheesesCount === 0) {
-      console.log('Game Over - No more lives!');
-      endGame();
+    // Check if game should end (no more lives) only in classic mode.
+    if (cheeseEndMode === 'end') {
+      const aliveCheesesCount = cheeseLifePositions.filter(c => c.alive).length;
+      if (lives <= 0 || aliveCheesesCount === 0) {
+        console.log('Game Over - No more lives!');
+        endGame();
+      }
     }
   }
 
@@ -1857,7 +1927,8 @@
 
   function animateRatEscape() {
     if (!ratVisible || !ratPos) return;
-    if (cheeseLifePositions.length === 0) return; // No cheese to steal
+    // If there is no alive cheese, still allow rat to run (no stealing), so the
+    // "cheese continues" mode can keep going.
 
     const runToken = ++ratRunToken;
     clearTimer(ratEscapeTimerId);
@@ -1868,16 +1939,20 @@
     ratEscaping = true;
     ratHasGrabbedCheese = false;
 
-    // Pick a random alive cheese to target
+    // Pick a random alive cheese to target (if any)
     const aliveCheeses = cheeseLifePositions
       .map((cheese, index) => ({ cheese, index }))
       .filter(item => item.cheese.alive);
 
-    if (aliveCheeses.length === 0) return; // No alive cheese
-
-    const randomAlive = aliveCheeses[Math.floor(Math.random() * aliveCheeses.length)];
-    ratTargetCheeseIndex = randomAlive.index;
-    const targetCheese = randomAlive.cheese;
+    const hasAliveCheese = aliveCheeses.length > 0;
+    let targetCheese = null;
+    if (hasAliveCheese) {
+      const randomAlive = aliveCheeses[Math.floor(Math.random() * aliveCheeses.length)];
+      ratTargetCheeseIndex = randomAlive.index;
+      targetCheese = randomAlive.cheese;
+    } else {
+      ratTargetCheeseIndex = -1;
+    }
 
     // Calculate difficulty-adjusted animation duration (1.1x faster than mouse)
     // IMPORTANT: Capture currentLevel at spawn time to prevent it from changing during animation
@@ -1908,8 +1983,8 @@
     const canvasRect = $canvas.getBoundingClientRect();
 
     // Target: first to the cheese, then below canvas
-    const cheeseX = targetCheese.xPx;
-    const cheeseY = targetCheese.yPx;
+    const cheeseX = hasAliveCheese ? targetCheese.xPx : clamp(ratPos.xPx + (Math.random() - 0.5) * canvasRect.width * 0.5, 0, canvasRect.width);
+    const cheeseY = hasAliveCheese ? targetCheese.yPx : clamp(ratPos.yPx + canvasRect.height * 0.35, 0, canvasRect.height);
     const finalY = canvasRect.height + 100;
     const targetX = cheeseX;
     const targetY = finalY;
@@ -2000,13 +2075,15 @@
         playMissSound();
         console.log(`Rat grabbed cheese! Lives remaining: ${lives}`);
 
-        const aliveCheesesCount = cheeseLifePositions.filter(c => c.alive).length;
-        if (lives <= 0 || aliveCheesesCount === 0) {
-          console.log('Game Over - No more lives!');
-          clearIntervalTimer(ratCheeseCheckIntervalId);
-          ratCheeseCheckIntervalId = null;
-          ratEscaping = false;
-          endGame();
+        if (cheeseEndMode === 'end') {
+          const aliveCheesesCount = cheeseLifePositions.filter(c => c.alive).length;
+          if (lives <= 0 || aliveCheesesCount === 0) {
+            console.log('Game Over - No more lives!');
+            clearIntervalTimer(ratCheeseCheckIntervalId);
+            ratCheeseCheckIntervalId = null;
+            ratEscaping = false;
+            endGame();
+          }
         }
       }
     }, 50);
@@ -2023,8 +2100,21 @@
       ratEscaping = false;
       setRatVisible(false);
 
-      // Steal the targeted cheese
-      stealCheeseForRat();
+      // Rat escaped (not caught): count miss streak only in "continue" mode.
+      if (cheeseEndMode === 'continue') {
+        missStreak += 1;
+        if (missStreak >= MISS_STREAK_LIMIT) {
+          endGame();
+          return;
+        }
+      }
+
+      // Steal the targeted cheese (if any).
+      if (ratTargetCheeseIndex >= 0) {
+        stealCheeseForRat();
+      } else {
+        updateHud();
+      }
 
       if (status === 'running') {
         scheduleNextMouse();
@@ -2046,11 +2136,13 @@
 
     updateHud();
 
-    // Check if game should end
-    const aliveCheesesCount = cheeseLifePositions.filter(c => c.alive).length;
-    if (lives <= 0 || aliveCheesesCount === 0) {
-      console.log('Game Over - No more lives!');
-      endGame();
+    // Check if game should end only in classic mode.
+    if (cheeseEndMode === 'end') {
+      const aliveCheesesCount = cheeseLifePositions.filter(c => c.alive).length;
+      if (lives <= 0 || aliveCheesesCount === 0) {
+        console.log('Game Over - No more lives!');
+        endGame();
+      }
     }
   }
 
@@ -2075,7 +2167,6 @@
 
   function animateLizardEscape() {
     if (!lizardVisible || !lizardPos) return;
-    if (cheeseLifePositions.length === 0) return; // No cheese to target
 
     const runToken = ++lizardRunToken;
     clearTimer(lizardEscapeTimerId);
@@ -2083,15 +2174,17 @@
 
     lizardEscaping = true;
 
-    // Pick a random alive cheese to target (but won't eat it)
+    // Pick a random alive cheese to target (if any; lizard doesn't eat it)
     const aliveCheeses = cheeseLifePositions
       .map((cheese, index) => ({ cheese, index }))
       .filter(item => item.cheese.alive);
 
-    if (aliveCheeses.length === 0) return; // No alive cheese
-
-    const randomAlive = aliveCheeses[Math.floor(Math.random() * aliveCheeses.length)];
-    const targetCheese = randomAlive.cheese;
+    const hasAliveCheese = aliveCheeses.length > 0;
+    let targetCheese = null;
+    if (hasAliveCheese) {
+      const randomAlive = aliveCheeses[Math.floor(Math.random() * aliveCheeses.length)];
+      targetCheese = randomAlive.cheese;
+    }
 
     // Calculate difficulty-adjusted animation duration (same speed as mouse)
     // IMPORTANT: Capture currentLevel at spawn time to prevent it from changing during animation
@@ -2120,8 +2213,8 @@
     const canvasRect = $canvas.getBoundingClientRect();
 
     // Target: towards the cheese, then below canvas (but doesn't eat cheese)
-    const cheeseX = targetCheese.xPx;
-    const cheeseY = targetCheese.yPx;
+    const cheeseX = hasAliveCheese ? targetCheese.xPx : clamp(lizardPos.xPx + (Math.random() - 0.5) * canvasRect.width * 0.5, 0, canvasRect.width);
+    const cheeseY = hasAliveCheese ? targetCheese.yPx : clamp(lizardPos.yPx + canvasRect.height * 0.35, 0, canvasRect.height);
     const finalY = canvasRect.height + 100;
     const targetX = cheeseX;
     const targetY = finalY;
@@ -2196,7 +2289,6 @@
 
   function animateBeeEscape() {
     if (!beeVisible || !beePos) return;
-    if (cheeseLifePositions.length === 0) return; // No cheese to target
 
     const runToken = ++beeRunToken;
     clearTimer(beeEscapeTimerId);
@@ -2204,15 +2296,17 @@
 
     beeEscaping = true;
 
-    // Pick a random alive cheese to target (but won't eat it)
+    // Pick a random alive cheese to target (if any; bee doesn't eat it)
     const aliveCheeses = cheeseLifePositions
       .map((cheese, index) => ({ cheese, index }))
       .filter(item => item.cheese.alive);
 
-    if (aliveCheeses.length === 0) return; // No alive cheese
-
-    const randomAlive = aliveCheeses[Math.floor(Math.random() * aliveCheeses.length)];
-    const targetCheese = randomAlive.cheese;
+    const hasAliveCheese = aliveCheeses.length > 0;
+    let targetCheese = null;
+    if (hasAliveCheese) {
+      const randomAlive = aliveCheeses[Math.floor(Math.random() * aliveCheeses.length)];
+      targetCheese = randomAlive.cheese;
+    }
 
     // Calculate difficulty-adjusted animation duration (same speed as mouse)
     // IMPORTANT: Capture currentLevel at spawn time to prevent it from changing during animation
@@ -2241,8 +2335,8 @@
     const canvasRect = $canvas.getBoundingClientRect();
 
     // Target: towards the cheese, then below canvas (but doesn't eat cheese)
-    const cheeseX = targetCheese.xPx;
-    const cheeseY = targetCheese.yPx;
+    const cheeseX = hasAliveCheese ? targetCheese.xPx : clamp(beePos.xPx + (Math.random() - 0.5) * canvasRect.width * 0.5, 0, canvasRect.width);
+    const cheeseY = hasAliveCheese ? targetCheese.yPx : clamp(beePos.yPx + canvasRect.height * 0.35, 0, canvasRect.height);
     const finalY = canvasRect.height + 100;
     const targetX = cheeseX;
     const targetY = finalY;
@@ -2355,6 +2449,7 @@
     hideCat();
 
     score = 0;
+    missStreak = 0;
     bestScoreAtRoundStart = bestScore;
     bestTimeAtRoundStart = bestTime;
     savedLevelAtRoundStart = savedLevel;
@@ -2500,6 +2595,7 @@
 
     status = 'idle';
     score = 0;
+    missStreak = 0;
     lives = INITIAL_LIVES;
     currentLevel = 1;
     survivalTimeMs = 0;
@@ -2607,6 +2703,7 @@
         updateHud();
 
         // Caught the escaping mouse!
+        missStreak = 0;
         mouseEscaping = false;
         setMouseVisible(false);
         scheduleNextMouse();
@@ -2662,6 +2759,7 @@
         updateHud();
 
         // Caught the escaping rat!
+        missStreak = 0;
         ratEscaping = false;
         setRatVisible(false);
         scheduleNextMouse();
@@ -2869,6 +2967,7 @@
     loadSavedLevel();
     loadLevelMode();
     loadSoundEnabled();
+    loadCheeseEndMode();
     loadHistory();
     updateStartOverlay();
     updateHud();
