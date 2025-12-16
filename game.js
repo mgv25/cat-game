@@ -560,7 +560,7 @@
           h.isBestLevel ? '<span class="badge badgeLevel">Рекорд уровня</span>' : '',
           h.isBestTime ? '<span class="badge badgeTime">Рекорд времени</span>' : '',
           h.isBestTotalCaught ? '<span class="badge badgeCaught">Рекорд поймано всего</span>' : '',
-          h.isBestCatchStreak ? '<span class="badge badgeStreak">Рекорд серии</span>' : '',
+          h.isBestCatchStreak ? '<span class="badge badgeStreak">Рекорд без промаха</span>' : '',
         ].filter(Boolean).join('');
 
         return `
@@ -2852,7 +2852,7 @@
           recordCatchStreakShown = true;
           catchStreakRecordBeaten = true;
           playRecordSound();
-          spawnRecordEffect(currentMouseX, currentMouseY - 110, 'Рекорд серии!', 'rgba(255, 190, 235, 0.92)');
+          spawnRecordEffect(currentMouseX, currentMouseY - 110, 'Рекорд без промаха!', 'rgba(255, 190, 235, 0.92)');
           if ($streakCard) $streakCard.classList.add('highlightedStreak');
         }
         updateHud();
@@ -2927,7 +2927,7 @@
           recordCatchStreakShown = true;
           catchStreakRecordBeaten = true;
           playRecordSound();
-          spawnRecordEffect(currentRatX, currentRatY - 110, 'Рекорд серии!', 'rgba(255, 190, 235, 0.92)');
+          spawnRecordEffect(currentRatX, currentRatY - 110, 'Рекорд без промаха!', 'rgba(255, 190, 235, 0.92)');
           if ($streakCard) $streakCard.classList.add('highlightedStreak');
         }
         updateHud();
