@@ -4,6 +4,7 @@
   const BEST_SCORE_KEY = 'catMouseBestScore';
   const BEST_TIME_KEY = 'catMouseBestTime';
   const BEST_TOTAL_CAUGHT_KEY = 'catMouseBestTotalCaught';
+  const BEST_CATCH_STREAK_KEY = 'catMouseBestCatchStreak';
   const SAVED_LEVEL_KEY = 'catMouseSavedLevel';
   const HISTORY_KEY = 'catMouseHistoryV2';
   const LEVEL_MODE_KEY = 'catMouseLevelMode';
@@ -49,6 +50,9 @@
   const $totalCaught = document.getElementById('totalCaught');
   const $bestTotalCaughtHud = document.getElementById('bestTotalCaughtHud');
   const $totalCaughtCard = document.getElementById('totalCaughtCard');
+  const $catchStreak = document.getElementById('catchStreak');
+  const $bestCatchStreakHud = document.getElementById('bestCatchStreakHud');
+  const $streakCard = document.getElementById('streakCard');
   const $hud = document.getElementById('hud');
 
   const $gameField = document.getElementById('gameField');
@@ -89,6 +93,9 @@
   const $finalTotalCaught = document.getElementById('finalTotalCaught');
   const $finalBestTotalCaught = document.getElementById('finalBestTotalCaught');
   const $finalTotalCaughtRow = document.getElementById('finalTotalCaughtRow');
+  const $finalBestStreak = document.getElementById('finalBestStreak');
+  const $finalBestCatchStreak = document.getElementById('finalBestCatchStreak');
+  const $finalStreakRow = document.getElementById('finalStreakRow');
   const $endTitle = document.getElementById('endTitle');
   const $confettiLayer = document.getElementById('confettiLayer');
 
@@ -118,6 +125,12 @@
   let bestTotalCaughtAtRoundStart = 0;
   let recordTotalCaughtShown = false;
   let totalCaughtRecordBeaten = false;
+  let catchStreak = 0;
+  let bestCatchStreak = 0;
+  let bestCatchStreakAtRoundStart = 0;
+  let bestCatchStreakThisRound = 0;
+  let recordCatchStreakShown = false;
+  let catchStreakRecordBeaten = false;
 
   let lives = INITIAL_LIVES;
   let currentLevel = 1;
@@ -498,7 +511,7 @@
     return Math.floor(Math.random() * (max - min + 1)) + min;
   }
 
-  /** @type {Array<{ts:number, score:number, survivalSeconds:number, level:number, totalCaught:number, isBestScore:boolean, isBestLevel:boolean, isBestTime:boolean, isBestTotalCaught:boolean}>} */
+  /** @type {Array<{ts:number, score:number, survivalSeconds:number, level:number, totalCaught:number, bestCatchStreak:number, isBestScore:boolean, isBestLevel:boolean, isBestTime:boolean, isBestTotalCaught:boolean, isBestCatchStreak:boolean}>} */
   let history = [];
 
   function loadHistory() {
@@ -547,12 +560,13 @@
           h.isBestLevel ? '<span class="badge badgeLevel">Рекорд уровня</span>' : '',
           h.isBestTime ? '<span class="badge badgeTime">Рекорд времени</span>' : '',
           h.isBestTotalCaught ? '<span class="badge badgeCaught">Рекорд поймано всего</span>' : '',
+          h.isBestCatchStreak ? '<span class="badge badgeStreak">Рекорд серии</span>' : '',
         ].filter(Boolean).join('');
 
         return `
           <div class="historyRow">
             <div class="historyMain">
-              <div class="historyLine1">Очки: ${h.score} · Поймано: ${h.totalCaught} · Время: ${h.survivalSeconds}с · Уровень: ${h.level}</div>
+              <div class="historyLine1">Очки: ${h.score} · Поймано: ${h.totalCaught} · Серия: ${h.bestCatchStreak} · Время: ${h.survivalSeconds}с · Уровень: ${h.level}</div>
               <div class="historyLine2">${formatTs(h.ts)}</div>
             </div>
             <div class="historyBadges">${badges}</div>
@@ -584,6 +598,10 @@
     // Reset best total caught
     bestTotalCaught = 0;
     saveBestTotalCaught();
+
+    // Reset best catch streak
+    bestCatchStreak = 0;
+    saveBestCatchStreak();
     
     // Reset saved level
     savedLevel = 0;
@@ -1189,6 +1207,24 @@
     }
   }
 
+  function loadBestCatchStreak() {
+    try {
+      const raw = window.localStorage.getItem(BEST_CATCH_STREAK_KEY);
+      const n = Number(raw);
+      bestCatchStreak = Number.isFinite(n) && n > 0 ? Math.floor(n) : 0;
+    } catch {
+      bestCatchStreak = 0;
+    }
+  }
+
+  function saveBestCatchStreak() {
+    try {
+      window.localStorage.setItem(BEST_CATCH_STREAK_KEY, String(bestCatchStreak));
+    } catch {
+      // ignore
+    }
+  }
+
   function saveBestScore() {
     try {
       window.localStorage.setItem(BEST_SCORE_KEY, String(bestScore));
@@ -1478,6 +1514,7 @@
     $score.textContent = String(score);
     $level.textContent = String(currentLevel);
     if ($totalCaught) $totalCaught.textContent = String(totalCaught);
+    if ($catchStreak) $catchStreak.textContent = String(catchStreak);
 
     // While playing (or paused mid-round), keep showing record values from round start
     // so player can compare against previous records.
@@ -1488,6 +1525,7 @@
     if ($bestScoreHud) $bestScoreHud.textContent = String(freezeRecords ? bestScoreAtRoundStart : bestScore);
     if ($bestTimeHud) $bestTimeHud.textContent = String(freezeRecords ? bestTimeAtRoundStart : bestTime);
     if ($bestTotalCaughtHud) $bestTotalCaughtHud.textContent = String(freezeRecords ? bestTotalCaughtAtRoundStart : bestTotalCaught);
+    if ($bestCatchStreakHud) $bestCatchStreakHud.textContent = String(freezeRecords ? bestCatchStreakAtRoundStart : bestCatchStreak);
 
     $survivalTime.textContent = String(survivalSeconds);
     $level.textContent = String(currentLevel);
@@ -1898,6 +1936,7 @@
 
       // Mouse escaped (not caught): count miss streak only in "continue" mode.
       if (cheeseEndMode === 'continue') {
+        catchStreak = 0;
         missStreak += 1;
         if (missStreak >= MISS_STREAK_LIMIT) {
           endGame();
@@ -2141,6 +2180,7 @@
 
       // Rat escaped (not caught): count miss streak only in "continue" mode.
       if (cheeseEndMode === 'continue') {
+        catchStreak = 0;
         missStreak += 1;
         if (missStreak >= MISS_STREAK_LIMIT) {
           endGame();
@@ -2489,10 +2529,13 @@
 
     score = 0;
     totalCaught = 0;
+    catchStreak = 0;
+    bestCatchStreakThisRound = 0;
     missStreak = 0;
     bestScoreAtRoundStart = bestScore;
     bestTimeAtRoundStart = bestTime;
     bestTotalCaughtAtRoundStart = bestTotalCaught;
+    bestCatchStreakAtRoundStart = bestCatchStreak;
     savedLevelAtRoundStart = savedLevel;
     recordScoreShown = false;
     recordLevelShown = false;
@@ -2502,10 +2545,13 @@
     timeRecordBeaten = false;
     recordTotalCaughtShown = false;
     totalCaughtRecordBeaten = false;
+    recordCatchStreakShown = false;
+    catchStreakRecordBeaten = false;
     // Remove highlight classes when starting new game
     if ($savedLevelCard) $savedLevelCard.classList.remove('highlighted');
     if ($timeCard) $timeCard.classList.remove('highlighted', 'highlightedTime');
     if ($totalCaughtCard) $totalCaughtCard.classList.remove('highlighted', 'highlightedCaught');
+    if ($streakCard) $streakCard.classList.remove('highlighted', 'highlightedStreak');
     if ($scoreCard) $scoreCard.classList.remove('highlighted', 'highlightedScore');
     if ($levelCard) $levelCard.classList.remove('highlighted');
     status = 'running';
@@ -2559,18 +2605,20 @@
 
     status = 'ended';
 
-    const endedWithRecord = scoreRecordBeaten || levelRecordBeaten || timeRecordBeaten || totalCaughtRecordBeaten;
+    const endedWithRecord = scoreRecordBeaten || levelRecordBeaten || timeRecordBeaten || totalCaughtRecordBeaten || catchStreakRecordBeaten;
     if ($endTitle) {
       $endTitle.textContent = endedWithRecord ? 'Игра окончена с рекордом!' : 'Игра окончена!';
       // If only one record type was beaten, tint the title accordingly; otherwise keep golden.
-      const typesCount = (scoreRecordBeaten ? 1 : 0) + (timeRecordBeaten ? 1 : 0) + (levelRecordBeaten ? 1 : 0) + (totalCaughtRecordBeaten ? 1 : 0);
+      const typesCount = (scoreRecordBeaten ? 1 : 0) + (timeRecordBeaten ? 1 : 0) + (levelRecordBeaten ? 1 : 0) + (totalCaughtRecordBeaten ? 1 : 0) + (catchStreakRecordBeaten ? 1 : 0);
       const useScore = endedWithRecord && typesCount === 1 && scoreRecordBeaten;
       const useTime = endedWithRecord && typesCount === 1 && timeRecordBeaten;
       const useCaught = endedWithRecord && typesCount === 1 && totalCaughtRecordBeaten;
-      $endTitle.classList.toggle('titleRecord', endedWithRecord && !useScore && !useTime && !useCaught);
+      const useStreak = endedWithRecord && typesCount === 1 && catchStreakRecordBeaten;
+      $endTitle.classList.toggle('titleRecord', endedWithRecord && !useScore && !useTime && !useCaught && !useStreak);
       $endTitle.classList.toggle('titleRecordScore', useScore);
       $endTitle.classList.toggle('titleRecordTime', useTime);
       $endTitle.classList.toggle('titleRecordCaught', useCaught);
+      $endTitle.classList.toggle('titleRecordStreak', useStreak);
     }
     if (endedWithRecord) {
       playEndWithRecordSound();
@@ -2605,6 +2653,10 @@
       bestTotalCaught = totalCaught;
       saveBestTotalCaught();
     }
+    if (bestCatchStreakThisRound > bestCatchStreak) {
+      bestCatchStreak = bestCatchStreakThisRound;
+      saveBestCatchStreak();
+    }
 
     history.unshift({
       ts: Date.now(),
@@ -2612,10 +2664,12 @@
       survivalSeconds: finalSurvivalSeconds,
       level: finalLevel,
       totalCaught,
+      bestCatchStreak: bestCatchStreakThisRound,
       isBestScore: score > bestScoreAtRoundStart,
       isBestLevel: finalLevel > savedLevelAtRoundStart,
       isBestTime: finalSurvivalSeconds > bestTimeAtRoundStart,
       isBestTotalCaught: totalCaught > bestTotalCaughtAtRoundStart,
+      isBestCatchStreak: bestCatchStreakThisRound > bestCatchStreakAtRoundStart,
     });
     history = history.slice(0, HISTORY_LIMIT);
     saveHistory();
@@ -2624,16 +2678,19 @@
     $finalLevel.textContent = String(finalLevel);
     $finalScore.textContent = String(score);
     if ($finalTotalCaught) $finalTotalCaught.textContent = String(totalCaught);
+    if ($finalBestStreak) $finalBestStreak.textContent = String(bestCatchStreakThisRound);
     // In end popup, show previous records if they were beaten this round (so player can compare).
     $finalBest.textContent = String(scoreRecordBeaten ? bestScoreAtRoundStart : bestScore);
     if ($finalBestTime) $finalBestTime.textContent = String(timeRecordBeaten ? bestTimeAtRoundStart : bestTime);
     if ($finalBestTotalCaught) $finalBestTotalCaught.textContent = String(totalCaughtRecordBeaten ? bestTotalCaughtAtRoundStart : bestTotalCaught);
+    if ($finalBestCatchStreak) $finalBestCatchStreak.textContent = String(catchStreakRecordBeaten ? bestCatchStreakAtRoundStart : bestCatchStreak);
 
     // Highlight achieved results that beat records (use record colors).
     if ($finalTimeRow) $finalTimeRow.classList.toggle('subtitleRecordTime', timeRecordBeaten);
     if ($finalLevelRow) $finalLevelRow.classList.toggle('subtitleRecordLevel', levelRecordBeaten);
     if ($finalScoreRow) $finalScoreRow.classList.toggle('subtitleRecordScore', scoreRecordBeaten);
     if ($finalTotalCaughtRow) $finalTotalCaughtRow.classList.toggle('subtitleRecordCaught', totalCaughtRecordBeaten);
+    if ($finalStreakRow) $finalStreakRow.classList.toggle('subtitleRecordStreak', catchStreakRecordBeaten);
 
     updateHud();
     updateEndOverlay();
@@ -2655,6 +2712,8 @@
     status = 'idle';
     score = 0;
     totalCaught = 0;
+    catchStreak = 0;
+    bestCatchStreakThisRound = 0;
     missStreak = 0;
     lives = INITIAL_LIVES;
     currentLevel = 1;
@@ -2669,10 +2728,13 @@
     timeRecordBeaten = false;
     recordTotalCaughtShown = false;
     totalCaughtRecordBeaten = false;
+    recordCatchStreakShown = false;
+    catchStreakRecordBeaten = false;
     // Remove highlight classes when resetting to idle
     if ($savedLevelCard) $savedLevelCard.classList.remove('highlighted');
     if ($timeCard) $timeCard.classList.remove('highlighted', 'highlightedTime');
     if ($totalCaughtCard) $totalCaughtCard.classList.remove('highlighted', 'highlightedCaught');
+    if ($streakCard) $streakCard.classList.remove('highlighted', 'highlightedStreak');
     if ($scoreCard) $scoreCard.classList.remove('highlighted', 'highlightedScore');
     if ($levelCard) $levelCard.classList.remove('highlighted');
     resetCheeseLifeStates(); // Reset cheese life states
@@ -2750,6 +2812,8 @@
       if (pointInHitbox(xPx, yPx, currentMouseX, currentMouseY, currentMouseHitbox)) {
         score += 1;
         totalCaught += 1;
+        catchStreak += 1;
+        if (catchStreak > bestCatchStreakThisRound) bestCatchStreakThisRound = catchStreak;
         playHitSound();
         // Hit effects (match old UI): 💥 + floating +1 at mouse position.
         spawnPuffEffect(currentMouseX, currentMouseY);
@@ -2771,6 +2835,15 @@
           playRecordSound();
           spawnRecordEffect(currentMouseX, currentMouseY - 90, 'Рекорд поймано!', 'rgba(220, 190, 255, 0.92)');
           if ($totalCaughtCard) $totalCaughtCard.classList.add('highlightedCaught');
+        }
+
+        // Catch streak record (mouse/rat only)
+        if (!recordCatchStreakShown && catchStreak > bestCatchStreakAtRoundStart && bestCatchStreakAtRoundStart > 0) {
+          recordCatchStreakShown = true;
+          catchStreakRecordBeaten = true;
+          playRecordSound();
+          spawnRecordEffect(currentMouseX, currentMouseY - 110, 'Рекорд серии!', 'rgba(255, 190, 235, 0.92)');
+          if ($streakCard) $streakCard.classList.add('highlightedStreak');
         }
         updateHud();
 
@@ -2817,6 +2890,8 @@
       if (pointInHitbox(xPx, yPx, currentRatX, currentRatY, currentRatHitbox)) {
         score += 3; // Rat gives +3 points
         totalCaught += 1;
+        catchStreak += 1;
+        if (catchStreak > bestCatchStreakThisRound) bestCatchStreakThisRound = catchStreak;
         playHitSound();
         // Hit effects: 💥 + floating +3 at rat position.
         spawnPuffEffect(currentRatX, currentRatY);
@@ -2836,6 +2911,14 @@
           playRecordSound();
           spawnRecordEffect(currentRatX, currentRatY - 90, 'Рекорд поймано!', 'rgba(220, 190, 255, 0.92)');
           if ($totalCaughtCard) $totalCaughtCard.classList.add('highlightedCaught');
+        }
+
+        if (!recordCatchStreakShown && catchStreak > bestCatchStreakAtRoundStart && bestCatchStreakAtRoundStart > 0) {
+          recordCatchStreakShown = true;
+          catchStreakRecordBeaten = true;
+          playRecordSound();
+          spawnRecordEffect(currentRatX, currentRatY - 110, 'Рекорд серии!', 'rgba(255, 190, 235, 0.92)');
+          if ($streakCard) $streakCard.classList.add('highlightedStreak');
         }
         updateHud();
 
@@ -3062,6 +3145,7 @@
     loadBestScore();
     loadBestTime();
     loadBestTotalCaught();
+    loadBestCatchStreak();
     loadSavedLevel();
     loadLevelMode();
     loadSoundEnabled();
