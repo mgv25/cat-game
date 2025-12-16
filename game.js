@@ -1117,7 +1117,7 @@
 
   // Get mouse lifespan in milliseconds for a given level in fixed mode
   function getMouseLifespanMs(level) {
-    const BASE_LIFESPAN_MS = 1500; // Starting lifespan at level 1
+    const BASE_LIFESPAN_MS = 2500; // Starting lifespan at level 1 (2.5 seconds)
     
     if (level <= 1) return BASE_LIFESPAN_MS;
     
@@ -1372,7 +1372,7 @@
     if (levelMode === 'fixed') {
       // Fixed mode: spawn rate based on current level
       // Use same progression as mouse lifespan for consistency
-      difficultyFactor = getMouseLifespanMs(currentLevel) / 1500;
+      difficultyFactor = getMouseLifespanMs(currentLevel) / 2500;
     } else {
       // Fibonacci mode: spawn rate based on survival time (old logic)
       const survivalSeconds = Math.floor((Date.now() - gameStartMs + survivalTimeMs) / 1000);
@@ -1380,7 +1380,7 @@
     }
 
     const minSpawn = Math.floor(BASE_MIN_SPAWN_MS * difficultyFactor);
-    const maxSpawn = Math.floor(BASE_MAX_SPAWN_MS * difficultyFactor);
+    const maxSpawn = Math.min(3000, Math.floor(BASE_MAX_SPAWN_MS * difficultyFactor)); // Never exceed 3 seconds
 
     const waitMs = randomIntInclusive(minSpawn, maxSpawn);
     clearTimer(nextSpawnTimerId);
@@ -1496,11 +1496,11 @@
       // Fibonacci mode: duration based on survival time (old logic)
       const survivalSeconds = Math.floor((Date.now() - gameStartMs + survivalTimeMs) / 1000);
       const difficultyFactor = Math.max(0.3, 1 - survivalSeconds / 120); // Gets harder over 2 minutes
-      animationDuration = Math.floor(1500 * difficultyFactor); // 1500ms down to 450ms
+      animationDuration = Math.floor(2500 * difficultyFactor); // 2500ms down to 750ms
     }
 
     // Minimal hitbox increase for faster mice
-    const speedRatio = 1500 / animationDuration;
+    const speedRatio = 2500 / animationDuration;
     const hitboxMultiplier = Math.pow(speedRatio, 0.3); // Extremely gentle growth
     currentMouseHitbox = HALF_HITBOX * hitboxMultiplier;
 
@@ -1706,13 +1706,13 @@
       // Fibonacci mode: duration based on survival time (old logic)
       const survivalSeconds = Math.floor((Date.now() - gameStartMs + survivalTimeMs) / 1000);
       const difficultyFactor = Math.max(0.3, 1 - survivalSeconds / 120);
-      baseAnimationDuration = Math.floor(1500 * difficultyFactor);
+      baseAnimationDuration = Math.floor(2500 * difficultyFactor);
     }
     
     const animationDuration = Math.floor(baseAnimationDuration / 1.1); // 1.1x faster
 
     // Minimal hitbox increase for faster rats
-    const speedRatio = 1500 / animationDuration;
+    const speedRatio = 2500 / animationDuration;
     const hitboxMultiplier = Math.pow(speedRatio, 0.3);
     currentRatHitbox = HALF_HITBOX * hitboxMultiplier;
 
@@ -1905,11 +1905,11 @@
       // Fibonacci mode: duration based on survival time (old logic)
       const survivalSeconds = Math.floor((Date.now() - gameStartMs + survivalTimeMs) / 1000);
       const difficultyFactor = Math.max(0.3, 1 - survivalSeconds / 120);
-      animationDuration = Math.floor(1500 * difficultyFactor);
+      animationDuration = Math.floor(2500 * difficultyFactor);
     }
 
     // Minimal hitbox increase
-    const speedRatio = 1500 / animationDuration;
+    const speedRatio = 2500 / animationDuration;
     const hitboxMultiplier = Math.pow(speedRatio, 0.3);
     currentLizardHitbox = HALF_HITBOX * hitboxMultiplier;
 
@@ -2014,11 +2014,11 @@
       // Fibonacci mode: duration based on survival time (old logic)
       const survivalSeconds = Math.floor((Date.now() - gameStartMs + survivalTimeMs) / 1000);
       const difficultyFactor = Math.max(0.3, 1 - survivalSeconds / 120);
-      animationDuration = Math.floor(1500 * difficultyFactor);
+      animationDuration = Math.floor(2500 * difficultyFactor);
     }
 
     // Minimal hitbox increase
-    const speedRatio = 1500 / animationDuration;
+    const speedRatio = 2500 / animationDuration;
     const hitboxMultiplier = Math.pow(speedRatio, 0.3);
     currentBeeHitbox = HALF_HITBOX * hitboxMultiplier;
 
