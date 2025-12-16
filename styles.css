@@ -243,6 +243,27 @@ body {
   color: var(--muted);
 }
 
+.subtitle.subtitleRecordScore {
+  color: rgba(150, 255, 180, 0.92);
+  text-shadow: 0 0 10px rgba(150, 255, 180, 0.12);
+}
+
+.subtitle.subtitleRecordLevel {
+  color: rgba(255, 235, 150, 0.92);
+  text-shadow: 0 0 10px rgba(255, 220, 100, 0.12);
+}
+
+.subtitle.subtitleRecordTime {
+  color: rgba(175, 205, 255, 0.92);
+  text-shadow: 0 0 10px rgba(160, 190, 255, 0.12);
+}
+
+.subtitle.subtitleRecordScore strong,
+.subtitle.subtitleRecordLevel strong,
+.subtitle.subtitleRecordTime strong {
+  color: inherit;
+}
+
 .btn {
   appearance: none;
   border: 1px solid var(--btn-border);

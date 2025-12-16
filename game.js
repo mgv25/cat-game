@@ -80,6 +80,9 @@
   const $finalScore = document.getElementById('finalScore');
   const $finalBest = document.getElementById('finalBest');
   const $finalBestTime = document.getElementById('finalBestTime');
+  const $finalTimeRow = document.getElementById('finalTimeRow');
+  const $finalLevelRow = document.getElementById('finalLevelRow');
+  const $finalScoreRow = document.getElementById('finalScoreRow');
   const $endTitle = document.getElementById('endTitle');
   const $confettiLayer = document.getElementById('confettiLayer');
 
@@ -2575,6 +2578,11 @@
     // In end popup, show previous records if they were beaten this round (so player can compare).
     $finalBest.textContent = String(scoreRecordBeaten ? bestScoreAtRoundStart : bestScore);
     if ($finalBestTime) $finalBestTime.textContent = String(timeRecordBeaten ? bestTimeAtRoundStart : bestTime);
+
+    // Highlight achieved results that beat records (use record colors).
+    if ($finalTimeRow) $finalTimeRow.classList.toggle('subtitleRecordTime', timeRecordBeaten);
+    if ($finalLevelRow) $finalLevelRow.classList.toggle('subtitleRecordLevel', levelRecordBeaten);
+    if ($finalScoreRow) $finalScoreRow.classList.toggle('subtitleRecordScore', scoreRecordBeaten);
 
     updateHud();
     updateEndOverlay();
