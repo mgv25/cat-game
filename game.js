@@ -1439,17 +1439,10 @@
   }
 
   function updateHud() {
-    $score.textContent = String(score);
-    $level.textContent = String(currentLevel);
-    if ($savedLevelHud) $savedLevelHud.textContent = String(savedLevel);
-    if ($bestScoreHud) $bestScoreHud.textContent = String(bestScore);
-    if ($bestTimeHud) $bestTimeHud.textContent = String(bestTime);
-
     let survivalSeconds = 0;
     if (status === 'running') {
       survivalSeconds = Math.floor((Date.now() - gameStartMs + survivalTimeMs) / 1000);
       if (survivalSeconds > bestTime) bestTime = survivalSeconds;
-      if ($bestTimeHud) $bestTimeHud.textContent = String(bestTime);
 
       // Check if time record was beaten (skip if first game)
       if (!recordTimeShown && survivalSeconds > bestTimeAtRoundStart && bestTimeAtRoundStart > 0) {
@@ -1461,6 +1454,12 @@
         if ($timeCard) $timeCard.classList.add('highlightedTime');
       }
       const newLevel = calculateLevel(survivalSeconds);
+
+      // Keep saved (record) level in sync immediately, like bestScore does.
+      if (newLevel > savedLevel) {
+        saveLevelProgress(newLevel);
+      }
+
       // Check if level record was beaten (only when level actually increases, skip if first game)
       if (newLevel !== currentLevel && !recordLevelShown && newLevel > savedLevelAtRoundStart && savedLevelAtRoundStart > 0) {
         recordLevelShown = true;
@@ -1477,6 +1476,12 @@
     } else {
       survivalSeconds = Math.floor(survivalTimeMs / 1000);
     }
+
+    $score.textContent = String(score);
+    $level.textContent = String(currentLevel);
+    if ($savedLevelHud) $savedLevelHud.textContent = String(savedLevel);
+    if ($bestScoreHud) $bestScoreHud.textContent = String(bestScore);
+    if ($bestTimeHud) $bestTimeHud.textContent = String(bestTime);
     $survivalTime.textContent = String(survivalSeconds);
     $level.textContent = String(currentLevel);
   }
