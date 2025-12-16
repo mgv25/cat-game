@@ -71,6 +71,7 @@
   const $finalScore = document.getElementById('finalScore');
   const $finalBest = document.getElementById('finalBest');
   const $endTitle = document.getElementById('endTitle');
+  const $confettiLayer = document.getElementById('confettiLayer');
 
   const $pauseBtn = document.getElementById('pauseBtn');
   const $resumeBtn = document.getElementById('resumeBtn');
@@ -386,6 +387,62 @@
     if (!soundEnabled) return;
     const ok = tryPlayAudio(endWithRecordAudio);
     if (!ok) playTone({ freqHz: 740, durationMs: 260, type: 'sine', gain: 0.05 });
+  }
+
+  let confettiCleanupTimerId = null;
+
+  function clearConfetti() {
+    clearTimer(confettiCleanupTimerId);
+    confettiCleanupTimerId = null;
+    if ($confettiLayer) $confettiLayer.replaceChildren();
+  }
+
+  function spawnEndConfetti() {
+    if (!$confettiLayer) return;
+    clearConfetti();
+
+    const rect = $confettiLayer.getBoundingClientRect();
+    const w = rect.width || window.innerWidth || 1;
+    const count = Math.min(120, Math.max(70, Math.floor(w / 10))); // scales with width
+
+    // Palette tuned to existing UI (warm yellow highlight + a bit of accent colors).
+    const colors = [
+      'rgba(255, 235, 150, 1)', // HUD highlight value
+      'rgba(255, 220, 100, 0.98)', // record effect yellow
+      'rgba(255, 200, 80, 0.96)',  // warm amber
+      'rgba(150, 255, 180, 0.90)', // score green
+      'rgba(160, 190, 255, 0.85)', // cool blue to match bg
+      'rgba(220, 180, 255, 0.80)', // soft violet
+    ];
+
+    const frag = document.createDocumentFragment();
+    for (let i = 0; i < count; i++) {
+      const el = document.createElement('div');
+      el.className = 'confettiPiece';
+
+      const xPx = Math.random() * w;
+      const driftPx = (Math.random() - 0.5) * 160; // gentle sideways drift
+      const rot = Math.floor(Math.random() * 360);
+      const delayMs = Math.floor(Math.random() * 450);
+      const durMs = Math.floor(1700 + Math.random() * 1300);
+      const wPx = Math.floor(6 + Math.random() * 8);
+      const hPx = Math.floor(10 + Math.random() * 14);
+      const c = colors[Math.floor(Math.random() * colors.length)];
+
+      el.style.setProperty('--x', `${xPx}px`);
+      el.style.setProperty('--drift', `${driftPx}px`);
+      el.style.setProperty('--rot', `${rot}deg`);
+      el.style.setProperty('--delay', `${delayMs}ms`);
+      el.style.setProperty('--dur', `${durMs}ms`);
+      el.style.setProperty('--w', `${wPx}px`);
+      el.style.setProperty('--h', `${hPx}px`);
+      el.style.setProperty('--c', c);
+
+      frag.appendChild(el);
+    }
+
+    $confettiLayer.appendChild(frag);
+    confettiCleanupTimerId = window.setTimeout(() => clearConfetti(), 5200);
   }
 
   function playLizardSound() {
@@ -2290,6 +2347,7 @@
     if (!isOrientationAllowed()) return;
 
     clearAllTimers();
+    clearConfetti();
     hideCat();
 
     score = 0;
@@ -2360,6 +2418,9 @@
     }
     if (endedWithRecord) {
       playEndWithRecordSound();
+      spawnEndConfetti();
+    } else {
+      clearConfetti();
     }
 
     // Calculate final survival time and level
@@ -2403,6 +2464,7 @@
 
   function resetToIdle() {
     clearAllTimers();
+    clearConfetti();
     setMouseVisible(false);
     setRatVisible(false);
     setLizardVisible(false);

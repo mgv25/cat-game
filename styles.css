@@ -133,6 +133,54 @@ body {
   background: rgba(0, 0, 0, 0.55);
 }
 
+.confettiLayer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  z-index: 1; /* below overlayCard (which sits naturally above) */
+}
+
+.overlayCard {
+  position: relative;
+  z-index: 2;
+}
+
+.confettiPiece {
+  position: absolute;
+  top: -10vh;
+  left: 0;
+  width: var(--w, 10px);
+  height: var(--h, 16px);
+  border-radius: 2px;
+  opacity: 0.92;
+  background: var(--c, rgba(255, 235, 150, 1));
+  transform: translateX(var(--x, 50vw)) rotate(var(--rot, 0deg));
+  animation: confettiFall var(--dur, 2200ms) linear var(--delay, 0ms) forwards;
+  box-shadow: 0 0 10px rgba(255, 220, 100, 0.08);
+}
+
+@keyframes confettiFall {
+  0% {
+    transform: translateX(var(--x, 50vw)) translateY(-12vh) rotate(var(--rot, 0deg));
+    filter: blur(0);
+  }
+  100% {
+    transform:
+      translateX(calc(var(--x, 50vw) + var(--drift, 0px)))
+      translateY(112vh)
+      rotate(calc(var(--rot, 0deg) + 720deg));
+    filter: blur(0.15px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .confettiPiece {
+    animation: none !important;
+    display: none !important;
+  }
+}
+
 .hidden {
   display: none !important;
 }
