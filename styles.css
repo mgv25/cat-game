@@ -193,6 +193,18 @@ body {
   background: rgba(255, 160, 160, 0.22);
 }
 
+.btnClose {
+  width: auto;
+  min-width: 36px;
+  padding: 8px 12px;
+  font-size: 48px;
+  line-height: 1;
+  font-weight: 400;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
 .btnSmall {
   width: auto;
   padding: 10px 12px;
