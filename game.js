@@ -516,15 +516,19 @@
 
     $historyList.innerHTML = history
       .map((h) => {
+        const badges = [
+          h.isBestScore ? '<span class="badge badgeScore">Рекорд очков</span>' : '',
+          h.isBestLevel ? '<span class="badge">Рекорд уровня</span>' : '',
+          h.isBestTime ? '<span class="badge badgeTime">Рекорд времени</span>' : '',
+        ].filter(Boolean).join('');
+
         return `
           <div class="historyRow">
             <div class="historyMain">
               <div class="historyLine1">Очки: ${h.score} · Время: ${h.survivalSeconds}с · Уровень: ${h.level}</div>
               <div class="historyLine2">${formatTs(h.ts)}</div>
             </div>
-            ${h.isBestScore ? '<span class="badge badgeScore">Рекорд очков</span>' : '<span></span>'}
-            ${h.isBestLevel ? '<span class="badge">Рекорд уровня</span>' : '<span></span>'}
-            ${h.isBestTime ? '<span class="badge badgeTime">Рекорд времени</span>' : '<span></span>'}
+            <div class="historyBadges">${badges}</div>
           </div>
         `;
       })
