@@ -178,6 +178,28 @@
   /** @type {number | null} */
   let tickTimerId = null;
 
+  // Per-animal timers/tokens. Needed so that old timeouts (e.g. after resize/pause)
+  // can't hide a newly spawned animal.
+  /** @type {number | null} */
+  let mouseEscapeTimerId = null;
+  /** @type {number | null} */
+  let mouseCheeseCheckIntervalId = null;
+  let mouseRunToken = 0;
+
+  /** @type {number | null} */
+  let ratEscapeTimerId = null;
+  /** @type {number | null} */
+  let ratCheeseCheckIntervalId = null;
+  let ratRunToken = 0;
+
+  /** @type {number | null} */
+  let lizardEscapeTimerId = null;
+  let lizardRunToken = 0;
+
+  /** @type {number | null} */
+  let beeEscapeTimerId = null;
+  let beeRunToken = 0;
+
   // Sound (best-effort; some browsers require user gesture to unlock audio)
   let audioCtx = null;
   let audioUnlocked = false;
@@ -980,9 +1002,21 @@
     clearTimer(cheeseHideTimerId);
     clearTimer(nextSpawnTimerId);
     clearIntervalTimer(tickTimerId);
+    clearTimer(mouseEscapeTimerId);
+    clearIntervalTimer(mouseCheeseCheckIntervalId);
+    clearTimer(ratEscapeTimerId);
+    clearIntervalTimer(ratCheeseCheckIntervalId);
+    clearTimer(lizardEscapeTimerId);
+    clearTimer(beeEscapeTimerId);
     cheeseHideTimerId = null;
     nextSpawnTimerId = null;
     tickTimerId = null;
+    mouseEscapeTimerId = null;
+    mouseCheeseCheckIntervalId = null;
+    ratEscapeTimerId = null;
+    ratCheeseCheckIntervalId = null;
+    lizardEscapeTimerId = null;
+    beeEscapeTimerId = null;
   }
 
   function loadBestScore() {
@@ -1190,11 +1224,19 @@
     }
     mouseVisible = isVisible;
     if (!isVisible) {
+      // Invalidate and clear any pending mouse timers from a previous spawn.
+      mouseRunToken++;
+      clearTimer(mouseEscapeTimerId);
+      clearIntervalTimer(mouseCheeseCheckIntervalId);
+      mouseEscapeTimerId = null;
+      mouseCheeseCheckIntervalId = null;
+
       mousePos = null;
       mouseEscaping = false;
       mouseTargetPos = null;
       mouseControlPoint1 = null;
       mouseControlPoint2 = null;
+      window.mouseControlPoints = null;
       currentMouseHitbox = HALF_HITBOX; // Reset to default
       mouseTargetCheeseIndex = -1;
       mouseHasGrabbedCheese = false;
@@ -1204,9 +1246,16 @@
   function setRatVisible(isVisible) {
     ratVisible = isVisible;
     if (!isVisible) {
+      ratRunToken++;
+      clearTimer(ratEscapeTimerId);
+      clearIntervalTimer(ratCheeseCheckIntervalId);
+      ratEscapeTimerId = null;
+      ratCheeseCheckIntervalId = null;
+
       ratPos = null;
       ratEscaping = false;
       ratTargetPos = null;
+      window.ratControlPoints = null;
       currentRatHitbox = HALF_HITBOX;
       ratTargetCheeseIndex = -1;
       ratHasGrabbedCheese = false;
@@ -1216,9 +1265,14 @@
   function setLizardVisible(isVisible) {
     lizardVisible = isVisible;
     if (!isVisible) {
+      lizardRunToken++;
+      clearTimer(lizardEscapeTimerId);
+      lizardEscapeTimerId = null;
+
       lizardPos = null;
       lizardEscaping = false;
       lizardTargetPos = null;
+      window.lizardControlPoints = null;
       currentLizardHitbox = HALF_HITBOX;
     }
   }
@@ -1226,9 +1280,14 @@
   function setBeeVisible(isVisible) {
     beeVisible = isVisible;
     if (!isVisible) {
+      beeRunToken++;
+      clearTimer(beeEscapeTimerId);
+      beeEscapeTimerId = null;
+
       beePos = null;
       beeEscaping = false;
       beeTargetPos = null;
+      window.beeControlPoints = null;
       currentBeeHitbox = HALF_HITBOX;
     }
   }
@@ -1489,6 +1548,13 @@
     if (!mouseVisible || !mousePos) return;
     if (cheeseLifePositions.length === 0) return; // No cheese to steal
 
+    // New mouse run: clear old timers and bump token so old callbacks become no-ops.
+    const runToken = ++mouseRunToken;
+    clearTimer(mouseEscapeTimerId);
+    clearIntervalTimer(mouseCheeseCheckIntervalId);
+    mouseEscapeTimerId = null;
+    mouseCheeseCheckIntervalId = null;
+
     mouseEscaping = true;
     mouseHasGrabbedCheese = false;
 
@@ -1574,9 +1640,10 @@
     mouseEscapeDuration = animationDuration;
 
     // Check periodically if mouse hitbox reached the cheese.
-    const checkInterval = setInterval(() => {
-      if (!mouseEscaping) {
-        clearInterval(checkInterval);
+    mouseCheeseCheckIntervalId = window.setInterval(() => {
+      if (runToken !== mouseRunToken || !mouseEscaping) {
+        clearIntervalTimer(mouseCheeseCheckIntervalId);
+        mouseCheeseCheckIntervalId = null;
         return;
       }
 
@@ -1631,7 +1698,8 @@
         const aliveCheesesCount = cheeseLifePositions.filter(c => c.alive).length;
         if (lives <= 0 || aliveCheesesCount === 0) {
           console.log('Game Over - No more lives!');
-          clearInterval(checkInterval);
+          clearIntervalTimer(mouseCheeseCheckIntervalId);
+          mouseCheeseCheckIntervalId = null;
           mouseEscaping = false; // Stop animation
           endGame();
         }
@@ -1639,8 +1707,11 @@
     }, 50);
 
     // After animation completes, steal cheese
-    setTimeout(() => {
-      clearInterval(checkInterval);
+    mouseEscapeTimerId = window.setTimeout(() => {
+      if (runToken !== mouseRunToken) return;
+      clearIntervalTimer(mouseCheeseCheckIntervalId);
+      mouseCheeseCheckIntervalId = null;
+      mouseEscapeTimerId = null;
 
       // Check if game has already ended or mouse was caught
       if (status !== 'running' || !mouseEscaping) return;
@@ -1704,6 +1775,12 @@
   function animateRatEscape() {
     if (!ratVisible || !ratPos) return;
     if (cheeseLifePositions.length === 0) return; // No cheese to steal
+
+    const runToken = ++ratRunToken;
+    clearTimer(ratEscapeTimerId);
+    clearIntervalTimer(ratCheeseCheckIntervalId);
+    ratEscapeTimerId = null;
+    ratCheeseCheckIntervalId = null;
 
     ratEscaping = true;
     ratHasGrabbedCheese = false;
@@ -1788,9 +1865,10 @@
     ratEscapeDuration = animationDuration;
 
     // Check periodically if rat hitbox reached the cheese
-    const checkInterval = setInterval(() => {
-      if (!ratEscaping) {
-        clearInterval(checkInterval);
+    ratCheeseCheckIntervalId = window.setInterval(() => {
+      if (runToken !== ratRunToken || !ratEscaping) {
+        clearIntervalTimer(ratCheeseCheckIntervalId);
+        ratCheeseCheckIntervalId = null;
         return;
       }
 
@@ -1842,7 +1920,8 @@
         const aliveCheesesCount = cheeseLifePositions.filter(c => c.alive).length;
         if (lives <= 0 || aliveCheesesCount === 0) {
           console.log('Game Over - No more lives!');
-          clearInterval(checkInterval);
+          clearIntervalTimer(ratCheeseCheckIntervalId);
+          ratCheeseCheckIntervalId = null;
           ratEscaping = false;
           endGame();
         }
@@ -1850,8 +1929,11 @@
     }, 50);
 
     // After animation completes, steal cheese
-    setTimeout(() => {
-      clearInterval(checkInterval);
+    ratEscapeTimerId = window.setTimeout(() => {
+      if (runToken !== ratRunToken) return;
+      clearIntervalTimer(ratCheeseCheckIntervalId);
+      ratCheeseCheckIntervalId = null;
+      ratEscapeTimerId = null;
 
       if (status !== 'running' || !ratEscaping) return;
 
@@ -1911,6 +1993,10 @@
   function animateLizardEscape() {
     if (!lizardVisible || !lizardPos) return;
     if (cheeseLifePositions.length === 0) return; // No cheese to target
+
+    const runToken = ++lizardRunToken;
+    clearTimer(lizardEscapeTimerId);
+    lizardEscapeTimerId = null;
 
     lizardEscaping = true;
 
@@ -1991,7 +2077,9 @@
     lizardEscapeDuration = animationDuration;
 
     // After animation completes, lizard disappears (doesn't steal cheese)
-    setTimeout(() => {
+    lizardEscapeTimerId = window.setTimeout(() => {
+      if (runToken !== lizardRunToken) return;
+      lizardEscapeTimerId = null;
       if (status !== 'running' || !lizardEscaping) return;
 
       lizardEscaping = false;
@@ -2026,6 +2114,10 @@
   function animateBeeEscape() {
     if (!beeVisible || !beePos) return;
     if (cheeseLifePositions.length === 0) return; // No cheese to target
+
+    const runToken = ++beeRunToken;
+    clearTimer(beeEscapeTimerId);
+    beeEscapeTimerId = null;
 
     beeEscaping = true;
 
@@ -2106,7 +2198,9 @@
     beeEscapeDuration = animationDuration;
 
     // After animation completes, bee disappears (doesn't steal cheese)
-    setTimeout(() => {
+    beeEscapeTimerId = window.setTimeout(() => {
+      if (runToken !== beeRunToken) return;
+      beeEscapeTimerId = null;
       if (status !== 'running' || !beeEscaping) return;
 
       beeEscaping = false;
