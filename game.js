@@ -1907,6 +1907,9 @@
         playMissSound();
         console.log(`Mouse grabbed cheese! Lives remaining: ${lives}`);
 
+        // Mouse succeeded (not caught) -> streak should reset regardless of mode.
+        catchStreak = 0;
+
         // Check if game should end immediately (only in classic mode)
         if (cheeseEndMode === 'end') {
           const aliveCheesesCount = cheeseLifePositions.filter(c => c.alive).length;
@@ -1934,9 +1937,11 @@
       mouseEscaping = false;
       setMouseVisible(false);
 
+      // Mouse escaped (not caught): streak should reset regardless of mode.
+      catchStreak = 0;
+
       // Mouse escaped (not caught): count miss streak only in "continue" mode.
       if (cheeseEndMode === 'continue') {
-        catchStreak = 0;
         missStreak += 1;
         if (missStreak >= MISS_STREAK_LIMIT) {
           endGame();
@@ -2153,6 +2158,9 @@
         playMissSound();
         console.log(`Rat grabbed cheese! Lives remaining: ${lives}`);
 
+        // Rat succeeded (not caught) -> streak should reset regardless of mode.
+        catchStreak = 0;
+
         if (cheeseEndMode === 'end') {
           const aliveCheesesCount = cheeseLifePositions.filter(c => c.alive).length;
           if (lives <= 0 || aliveCheesesCount === 0) {
@@ -2178,9 +2186,11 @@
       ratEscaping = false;
       setRatVisible(false);
 
+      // Rat escaped (not caught): streak should reset regardless of mode.
+      catchStreak = 0;
+
       // Rat escaped (not caught): count miss streak only in "continue" mode.
       if (cheeseEndMode === 'continue') {
-        catchStreak = 0;
         missStreak += 1;
         if (missStreak >= MISS_STREAK_LIMIT) {
           endGame();
