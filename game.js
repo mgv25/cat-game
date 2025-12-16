@@ -163,7 +163,7 @@
   let catPos = null;
 
   // Transient hit effects (puff + floating score) rendered on canvas
-  /** @type {Array<{type:'puff'|'score'|'record'|'penalty', xPx:number, yPx:number, text?:string, startMs:number, durationMs:number}>} */
+  /** @type {Array<{type:'puff'|'score'|'record'|'penalty', xPx:number, yPx:number, text?:string, color?:string, startMs:number, durationMs:number}>} */
   let effects = [];
 
   // Canvas emoji sizes
@@ -521,9 +521,9 @@
               <div class="historyLine1">Очки: ${h.score} · Время: ${h.survivalSeconds}с · Уровень: ${h.level}</div>
               <div class="historyLine2">${formatTs(h.ts)}</div>
             </div>
-            ${h.isBestScore ? '<span class="badge">Рекорд очков</span>' : '<span></span>'}
+            ${h.isBestScore ? '<span class="badge badgeScore">Рекорд очков</span>' : '<span></span>'}
             ${h.isBestLevel ? '<span class="badge">Рекорд уровня</span>' : '<span></span>'}
-            ${h.isBestTime ? '<span class="badge">Рекорд времени</span>' : '<span></span>'}
+            ${h.isBestTime ? '<span class="badge badgeTime">Рекорд времени</span>' : '<span></span>'}
           </div>
         `;
       })
@@ -798,7 +798,7 @@
           ctx.translate(e.xPx, e.yPx + yOffset);
           ctx.scale(scale, scale);
           ctx.font = `32px Arial, "Apple Color Emoji", "Segoe UI Emoji"`;
-          ctx.fillStyle = 'rgba(255, 220, 100, 0.98)'; // Yellow color matching app theme
+          ctx.fillStyle = e.color || 'rgba(255, 220, 100, 0.98)'; // Default: yellow
           ctx.fillText(e.text || 'Рекорд!', 0, 0);
           ctx.restore();
         } else if (e.type === 'penalty') {
@@ -1435,8 +1435,8 @@
         timeRecordBeaten = true;
         playRecordSound();
         const rect = $canvas.getBoundingClientRect();
-        spawnRecordEffect(rect.width / 2, rect.height / 2 - 40, 'Рекорд времени!');
-        if ($timeCard) $timeCard.classList.add('highlighted');
+        spawnRecordEffect(rect.width / 2, rect.height / 2 - 40, 'Рекорд времени!', 'rgba(160, 190, 255, 0.95)');
+        if ($timeCard) $timeCard.classList.add('highlightedTime');
       }
       const newLevel = calculateLevel(survivalSeconds);
       // Check if level record was beaten (only when level actually increases, skip if first game)
@@ -1446,7 +1446,7 @@
         playRecordSound();
         // Show record effect at center of canvas
         const rect = $canvas.getBoundingClientRect();
-        spawnRecordEffect(rect.width / 2, rect.height / 2, 'Рекорд уровня!');
+        spawnRecordEffect(rect.width / 2, rect.height / 2, 'Рекорд уровня!', 'rgba(255, 220, 100, 0.98)');
         if ($savedLevelCard) $savedLevelCard.classList.add('highlighted');
       }
       currentLevel = newLevel;
@@ -2344,8 +2344,8 @@
     effects.push({ type: 'score', xPx, yPx, text, startMs: Date.now(), durationMs: 520 });
   }
 
-  function spawnRecordEffect(xPx, yPx, text) {
-    effects.push({ type: 'record', xPx, yPx, text, startMs: Date.now(), durationMs: 800 });
+  function spawnRecordEffect(xPx, yPx, text, color) {
+    effects.push({ type: 'record', xPx, yPx, text, color, startMs: Date.now(), durationMs: 800 });
   }
 
   function spawnPenaltyEffect(xPx, yPx, text = '-1') {
@@ -2405,9 +2405,9 @@
     levelRecordBeaten = false;
     timeRecordBeaten = false;
     // Remove highlight classes when starting new game
-    if ($bestScoreCard) $bestScoreCard.classList.remove('highlighted');
+    if ($bestScoreCard) $bestScoreCard.classList.remove('highlighted', 'highlightedScore');
     if ($savedLevelCard) $savedLevelCard.classList.remove('highlighted');
-    if ($timeCard) $timeCard.classList.remove('highlighted');
+    if ($timeCard) $timeCard.classList.remove('highlighted', 'highlightedTime');
     status = 'running';
     unlockAudio();
 
@@ -2462,7 +2462,13 @@
     const endedWithRecord = scoreRecordBeaten || levelRecordBeaten || timeRecordBeaten;
     if ($endTitle) {
       $endTitle.textContent = endedWithRecord ? 'Игра окончена с рекордом!' : 'Игра окончена!';
-      $endTitle.classList.toggle('titleRecord', endedWithRecord);
+      // If only one record type was beaten, tint the title accordingly; otherwise keep golden.
+      const typesCount = (scoreRecordBeaten ? 1 : 0) + (timeRecordBeaten ? 1 : 0) + (levelRecordBeaten ? 1 : 0);
+      const useScore = endedWithRecord && typesCount === 1 && scoreRecordBeaten;
+      const useTime = endedWithRecord && typesCount === 1 && timeRecordBeaten;
+      $endTitle.classList.toggle('titleRecord', endedWithRecord && !useScore && !useTime);
+      $endTitle.classList.toggle('titleRecordScore', useScore);
+      $endTitle.classList.toggle('titleRecordTime', useTime);
     }
     if (endedWithRecord) {
       playEndWithRecordSound();
@@ -2538,9 +2544,9 @@
     levelRecordBeaten = false;
     timeRecordBeaten = false;
     // Remove highlight classes when resetting to idle
-    if ($bestScoreCard) $bestScoreCard.classList.remove('highlighted');
+    if ($bestScoreCard) $bestScoreCard.classList.remove('highlighted', 'highlightedScore');
     if ($savedLevelCard) $savedLevelCard.classList.remove('highlighted');
-    if ($timeCard) $timeCard.classList.remove('highlighted');
+    if ($timeCard) $timeCard.classList.remove('highlighted', 'highlightedTime');
     resetCheeseLifeStates(); // Reset cheese life states
 
     setOverlay($endOverlay, false);
@@ -2627,8 +2633,8 @@
           recordScoreShown = true;
           scoreRecordBeaten = true;
           playRecordSound();
-          spawnRecordEffect(currentMouseX, currentMouseY - 70, 'Рекорд очков!');
-          if ($bestScoreCard) $bestScoreCard.classList.add('highlighted');
+          spawnRecordEffect(currentMouseX, currentMouseY - 70, 'Рекорд очков!', 'rgba(150, 255, 180, 0.95)');
+          if ($bestScoreCard) $bestScoreCard.classList.add('highlightedScore');
         }
         updateHud();
 
@@ -2685,8 +2691,8 @@
           recordScoreShown = true;
           scoreRecordBeaten = true;
           playRecordSound();
-          spawnRecordEffect(currentRatX, currentRatY - 70, 'Рекорд очков!');
-          if ($bestScoreCard) $bestScoreCard.classList.add('highlighted');
+          spawnRecordEffect(currentRatX, currentRatY - 70, 'Рекорд очков!', 'rgba(150, 255, 180, 0.95)');
+          if ($bestScoreCard) $bestScoreCard.classList.add('highlightedScore');
         }
         updateHud();
 

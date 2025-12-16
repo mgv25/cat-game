@@ -61,6 +61,18 @@ body {
   box-shadow: 0 0 12px rgba(255, 220, 100, 0.2);
 }
 
+.hudCard.highlightedScore {
+  background: rgba(150, 255, 180, 0.18);
+  border-color: rgba(120, 235, 165, 0.35);
+  box-shadow: 0 0 12px rgba(150, 255, 180, 0.18);
+}
+
+.hudCard.highlightedTime {
+  background: rgba(160, 190, 255, 0.18);
+  border-color: rgba(145, 175, 245, 0.35);
+  box-shadow: 0 0 12px rgba(160, 190, 255, 0.18);
+}
+
 .hudCardLabel {
   color: rgba(255, 255, 255, 0.72);
   font-size: 12px;
@@ -209,6 +221,16 @@ body {
 .title.titleRecord {
   color: rgba(255, 235, 150, 1);
   text-shadow: 0 0 12px rgba(255, 220, 100, 0.25);
+}
+
+.title.titleRecordScore {
+  color: rgba(150, 255, 180, 0.96);
+  text-shadow: 0 0 12px rgba(150, 255, 180, 0.18);
+}
+
+.title.titleRecordTime {
+  color: rgba(175, 205, 255, 0.96);
+  text-shadow: 0 0 12px rgba(160, 190, 255, 0.18);
 }
 
 .subtitle {
@@ -380,6 +402,17 @@ body {
   background: rgba(255, 255, 255, 0.10);
   white-space: nowrap;
 }
+
+.badge.badgeScore {
+  border-color: rgba(120, 235, 165, 0.35);
+  background: rgba(150, 255, 180, 0.14);
+}
+
+.badge.badgeTime {
+  border-color: rgba(145, 175, 245, 0.35);
+  background: rgba(160, 190, 255, 0.14);
+}
+
 
 .settingsContent {
   margin-top: 12px;
