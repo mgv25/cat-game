@@ -30,10 +30,14 @@ body {
 }
 
 #hud {
-  height: var(--hud-height);
+  /* Don't clip cards; allow header to grow if content becomes taller */
+  height: auto;
+  min-height: var(--hud-height);
   display: grid;
   grid-template-columns: 1fr 1fr 1fr;
-  grid-template-rows: 1fr 1fr;
+  /* Let each row take exactly the space it needs (prevents bottom row from stretching) */
+  grid-template-rows: auto auto;
+  align-content: start;
   gap: 7px;
   /* Slightly tighter vertically; a bit more space at bottom to match top */
   padding: 7px 10px 9px;
@@ -333,6 +337,19 @@ body {
 
 .btnSettings:active {
   transform: translateY(1px);
+}
+
+/* When the settings button is visible (pause button hidden), make it fill the whole HUD cell */
+.hudCardSmall {
+  position: relative;
+}
+
+#settingsBtn {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border-radius: 12px; /* match card */
 }
 
 .historyCard {

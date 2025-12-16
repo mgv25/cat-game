@@ -41,6 +41,7 @@
   const $savedLevelCard = document.getElementById('savedLevelCard');
   const $bestTimeHud = document.getElementById('bestTimeHud');
   const $timeCard = document.getElementById('timeCard');
+  const $hud = document.getElementById('hud');
 
   const $gameField = document.getElementById('gameField');
   const $canvas = document.getElementById('gameCanvas');
@@ -708,6 +709,12 @@
     $canvas.height = rect.height * dpr;
     ctx.scale(dpr, dpr);
     initializeCheeseLifePositions();
+  }
+
+  function syncHudHeightVar() {
+    if (!$hud) return;
+    const h = Math.ceil($hud.getBoundingClientRect().height);
+    if (h > 0) document.documentElement.style.setProperty('--hud-height', `${h}px`);
   }
 
   function initializeCheeseLifePositions() {
@@ -2872,6 +2879,7 @@
     $canvas.addEventListener('pointerdown', onPointerDown, { passive: false });
 
     window.addEventListener('resize', () => {
+      syncHudHeightVar();
       setupCanvas(); // Resize canvas
       updateOrientationOverlay();
 
@@ -2896,6 +2904,7 @@
   }
 
   function init() {
+    syncHudHeightVar();
     setupCanvas();
     loadBestScore();
     loadBestTime();
@@ -2913,6 +2922,12 @@
     if ($pauseBtn) $pauseBtn.style.display = 'none';
     if ($settingsBtn) $settingsBtn.style.display = 'block';
     render(); // Start render loop
+
+    // Second pass after first paint (fonts/layout) to avoid tiny drift.
+    requestAnimationFrame(() => {
+      syncHudHeightVar();
+      setupCanvas();
+    });
 
     // Если вкладка скрыта — поставим игру на паузу (без усложнения таймингов мыши).
     document.addEventListener('visibilitychange', () => {
