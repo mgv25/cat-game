@@ -18,6 +18,7 @@
   const MISS_SOUND_SRC = './assets/sounds/miss.mp3';
   const CHEESE_SOUND_SRC = './assets/sounds/cheese.mp3';
   const RECORD_SOUND_SRC = './assets/sounds/record.mp3';
+  const END_WITH_RECORD_SOUND_SRC = './assets/sounds/end_with_record.mp3';
   const LIZARD_SOUND_SRC = './assets/sounds/lizard.mp3';
   const BEE_SOUND_SRC = './assets/sounds/bee.mp3';
   const MOUSE_EMOJI = '🐁';
@@ -69,6 +70,7 @@
   const $finalLevel = document.getElementById('finalLevel');
   const $finalScore = document.getElementById('finalScore');
   const $finalBest = document.getElementById('finalBest');
+  const $endTitle = document.getElementById('endTitle');
 
   const $pauseBtn = document.getElementById('pauseBtn');
   const $resumeBtn = document.getElementById('resumeBtn');
@@ -207,18 +209,21 @@
   const missAudio = new Audio(MISS_SOUND_SRC);
   const cheeseAudio = new Audio(CHEESE_SOUND_SRC);
   const recordAudio = new Audio(RECORD_SOUND_SRC);
+  const endWithRecordAudio = new Audio(END_WITH_RECORD_SOUND_SRC);
   const lizardAudio = new Audio(LIZARD_SOUND_SRC);
   const beeAudio = new Audio(BEE_SOUND_SRC);
   hitAudio.preload = 'auto';
   missAudio.preload = 'auto';
   cheeseAudio.preload = 'auto';
   recordAudio.preload = 'auto';
+  endWithRecordAudio.preload = 'auto';
   lizardAudio.preload = 'auto';
   beeAudio.preload = 'auto';
   hitAudio.volume = 0.7;
   missAudio.volume = 0.6;
   cheeseAudio.volume = 0.7;
   recordAudio.volume = 0.7;
+  endWithRecordAudio.volume = 0.7;
   lizardAudio.volume = 0.7;
   beeAudio.volume = 0.7;
 
@@ -246,18 +251,21 @@
       const prevVolMiss = missAudio.volume;
       const prevVolCheese = cheeseAudio.volume;
       const prevVolRecord = recordAudio.volume;
+      const prevVolEndWithRecord = endWithRecordAudio.volume;
       const prevVolLizard = lizardAudio.volume;
       const prevVolBee = beeAudio.volume;
       hitAudio.volume = 0;
       missAudio.volume = 0;
       cheeseAudio.volume = 0;
       recordAudio.volume = 0;
+      endWithRecordAudio.volume = 0;
       lizardAudio.volume = 0;
       beeAudio.volume = 0;
       hitAudio.currentTime = 0;
       missAudio.currentTime = 0;
       cheeseAudio.currentTime = 0;
       recordAudio.currentTime = 0;
+      endWithRecordAudio.currentTime = 0;
       lizardAudio.currentTime = 0;
       beeAudio.currentTime = 0;
       const p1 = hitAudio.play();
@@ -284,15 +292,21 @@
       } else {
         recordAudio.pause();
       }
-      const p5 = lizardAudio.play();
+      const p5 = endWithRecordAudio.play();
       if (p5 && typeof p5.then === 'function') {
-        p5.then(() => lizardAudio.pause()).catch(() => {});
+        p5.then(() => endWithRecordAudio.pause()).catch(() => {});
+      } else {
+        endWithRecordAudio.pause();
+      }
+      const p6 = lizardAudio.play();
+      if (p6 && typeof p6.then === 'function') {
+        p6.then(() => lizardAudio.pause()).catch(() => {});
       } else {
         lizardAudio.pause();
       }
-      const p6 = beeAudio.play();
-      if (p6 && typeof p6.then === 'function') {
-        p6.then(() => beeAudio.pause()).catch(() => {});
+      const p7 = beeAudio.play();
+      if (p7 && typeof p7.then === 'function') {
+        p7.then(() => beeAudio.pause()).catch(() => {});
       } else {
         beeAudio.pause();
       }
@@ -300,6 +314,7 @@
       missAudio.volume = prevVolMiss;
       cheeseAudio.volume = prevVolCheese;
       recordAudio.volume = prevVolRecord;
+      endWithRecordAudio.volume = prevVolEndWithRecord;
       lizardAudio.volume = prevVolLizard;
       beeAudio.volume = prevVolBee;
     } catch {
@@ -365,6 +380,12 @@
     if (!soundEnabled) return;
     const ok = tryPlayAudio(recordAudio);
     if (!ok) playTone({ freqHz: 880, durationMs: 200, type: 'sine', gain: 0.05 });
+  }
+
+  function playEndWithRecordSound() {
+    if (!soundEnabled) return;
+    const ok = tryPlayAudio(endWithRecordAudio);
+    if (!ok) playTone({ freqHz: 740, durationMs: 260, type: 'sine', gain: 0.05 });
   }
 
   function playLizardSound() {
@@ -1320,6 +1341,7 @@
       // Check if level record was beaten (only when level actually increases, skip if first game)
       if (newLevel !== currentLevel && !recordLevelShown && newLevel > savedLevelAtRoundStart && savedLevelAtRoundStart > 0) {
         recordLevelShown = true;
+        levelRecordBeaten = true;
         playRecordSound();
         // Show record effect at center of canvas
         const rect = $canvas.getBoundingClientRect();
@@ -2275,6 +2297,8 @@
     savedLevelAtRoundStart = savedLevel;
     recordScoreShown = false;
     recordLevelShown = false;
+    scoreRecordBeaten = false;
+    levelRecordBeaten = false;
     // Remove highlight classes when starting new game
     if ($bestScoreCard) $bestScoreCard.classList.remove('highlighted');
     if ($savedLevelCard) $savedLevelCard.classList.remove('highlighted');
@@ -2328,6 +2352,15 @@
     setCheeseVisible(false);
 
     status = 'ended';
+
+    const endedWithRecord = scoreRecordBeaten || levelRecordBeaten;
+    if ($endTitle) {
+      $endTitle.textContent = endedWithRecord ? 'Игра окончена с рекордом!' : 'Игра окончена!';
+      $endTitle.classList.toggle('titleRecord', endedWithRecord);
+    }
+    if (endedWithRecord) {
+      playEndWithRecordSound();
+    }
 
     // Calculate final survival time and level
     const finalSurvivalMs = Date.now() - gameStartMs + survivalTimeMs;
@@ -2386,6 +2419,8 @@
     isUserPaused = false;
     recordScoreShown = false;
     recordLevelShown = false;
+    scoreRecordBeaten = false;
+    levelRecordBeaten = false;
     // Remove highlight classes when resetting to idle
     if ($bestScoreCard) $bestScoreCard.classList.remove('highlighted');
     if ($savedLevelCard) $savedLevelCard.classList.remove('highlighted');
@@ -2473,6 +2508,7 @@
         // Check if score record was beaten (skip if this is the first game)
         if (!recordScoreShown && score > bestScoreAtRoundStart && bestScoreAtRoundStart > 0) {
           recordScoreShown = true;
+          scoreRecordBeaten = true;
           playRecordSound();
           spawnRecordEffect(currentMouseX, currentMouseY - 70, 'Рекорд очков!');
           if ($bestScoreCard) $bestScoreCard.classList.add('highlighted');
@@ -2530,6 +2566,7 @@
         // Check if score record was beaten (skip if this is the first game)
         if (!recordScoreShown && score > bestScoreAtRoundStart && bestScoreAtRoundStart > 0) {
           recordScoreShown = true;
+          scoreRecordBeaten = true;
           playRecordSound();
           spawnRecordEffect(currentRatX, currentRatY - 70, 'Рекорд очков!');
           if ($bestScoreCard) $bestScoreCard.classList.add('highlighted');

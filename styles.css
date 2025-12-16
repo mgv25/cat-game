@@ -153,6 +153,12 @@ body {
   font-weight: 800;
 }
 
+/* Yellow record color matching highlighted HUD cards */
+.title.titleRecord {
+  color: rgba(255, 235, 150, 1);
+  text-shadow: 0 0 12px rgba(255, 220, 100, 0.25);
+}
+
 .subtitle {
   margin: 8px 0;
   font-size: 16px;
