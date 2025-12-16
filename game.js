@@ -2642,7 +2642,9 @@
       const useTime = endedWithRecord && typesCount === 1 && timeRecordBeaten;
       const useCaught = endedWithRecord && typesCount === 1 && totalCaughtRecordBeaten;
       const useStreak = endedWithRecord && typesCount === 1 && catchStreakRecordBeaten;
-      $endTitle.classList.toggle('titleRecord', endedWithRecord && !useScore && !useTime && !useCaught && !useStreak);
+      const useMulti = endedWithRecord && typesCount > 1;
+      $endTitle.classList.toggle('titleRecord', endedWithRecord && !useScore && !useTime && !useCaught && !useStreak && !useMulti);
+      $endTitle.classList.toggle('titleRecordMulti', useMulti);
       $endTitle.classList.toggle('titleRecordScore', useScore);
       $endTitle.classList.toggle('titleRecordTime', useTime);
       $endTitle.classList.toggle('titleRecordCaught', useCaught);
