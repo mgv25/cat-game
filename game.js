@@ -1300,10 +1300,16 @@
     let lifespan = BASE_LIFESPAN_MS;
     
     // Calculate lifespan based on level progression
-    // Use speedDecreasePercent setting (positive = decrease, negative = increase)
-    const multiplier = 1 - (speedDecreasePercent / 100);
-    
     for (let i = 2; i <= level; i++) {
+      // Piecewise speed increase per level:
+      // - up to level 10: 7% faster per level
+      // - up to level 20: 4% faster per level
+      // - beyond: 2% faster per level
+      let percent;
+      if (i <= 10) percent = 7;
+      else if (i <= 20) percent = 4;
+      else percent = 2;
+      const multiplier = 1 - (percent / 100);
       lifespan = lifespan * multiplier;
     }
     
