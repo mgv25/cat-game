@@ -436,6 +436,13 @@
   }
 
   let confettiCleanupTimerId = null;
+  let endOverlayCooldownTimerId = null;
+
+  function setEndOverlayButtonsEnabled(enabled) {
+    // Only affects buttons in the end overlay; prevents accidental taps right after game over.
+    const btns = [$restartBtn, $historyBtnEnd, $continueBtnEnd].filter(Boolean);
+    for (const b of btns) b.disabled = !enabled;
+  }
 
   function clearConfetti() {
     clearTimer(confettiCleanupTimerId);
@@ -2615,6 +2622,15 @@
 
     status = 'ended';
 
+    // Prevent accidental taps on end popup buttons for a short time.
+    clearTimer(endOverlayCooldownTimerId);
+    endOverlayCooldownTimerId = null;
+    setEndOverlayButtonsEnabled(false);
+    endOverlayCooldownTimerId = window.setTimeout(() => {
+      endOverlayCooldownTimerId = null;
+      if (status === 'ended') setEndOverlayButtonsEnabled(true);
+    }, 1000);
+
     const endedWithRecord = scoreRecordBeaten || levelRecordBeaten || timeRecordBeaten || totalCaughtRecordBeaten || catchStreakRecordBeaten;
     if ($endTitle) {
       $endTitle.textContent = endedWithRecord ? 'Игра окончена с рекордом!' : 'Игра окончена!';
@@ -2712,6 +2728,9 @@
   function resetToIdle() {
     clearAllTimers();
     clearConfetti();
+    clearTimer(endOverlayCooldownTimerId);
+    endOverlayCooldownTimerId = null;
+    setEndOverlayButtonsEnabled(true);
     setMouseVisible(false);
     setRatVisible(false);
     setLizardVisible(false);
