@@ -18,12 +18,16 @@
   const CHEESE_SOUND_SRC = './assets/sounds/cheese.mp3';
   const RECORD_SOUND_SRC = './assets/sounds/record.mp3';
   const LIZARD_SOUND_SRC = './assets/sounds/lizard.mp3';
+  const BEE_SOUND_SRC = './assets/sounds/bee.mp3';
   const MOUSE_EMOJI = '🐁';
   const RAT_EMOJI = '🐀';
   const LIZARD_EMOJI = '🦎';
+  const BEE_EMOJI = '🐝';
   const CAT_EMOJI = '🐈';
-  const RAT_SPAWN_CHANCE = 0.15; // 15% chance to spawn rat instead of mouse
-  const LIZARD_SPAWN_CHANCE = 0.10; // 10% chance to spawn lizard
+  const MOUSE_SPAWN_CHANCE = 0.60; // 60% chance to spawn mouse
+  const RAT_SPAWN_CHANCE = 0.12; // 12% chance to spawn rat
+  const LIZARD_SPAWN_CHANCE = 0.08; // 8% chance to spawn lizard
+  const BEE_SPAWN_CHANCE = 0.05; // 5% chance to spawn bee
 
   const $score = document.getElementById('score');
   const $survivalTime = document.getElementById('survivalTime');
@@ -127,6 +131,15 @@
   let lizardEscapeDuration = 0;
   let currentLizardHitbox = HALF_HITBOX;
   
+  let beeVisible = false;
+  /** @type {{xPx:number, yPx:number} | null} */
+  let beePos = null;
+  let beeEscaping = false;
+  let beeTargetPos = null;
+  let beeEscapeStartTime = 0;
+  let beeEscapeDuration = 0;
+  let currentBeeHitbox = HALF_HITBOX;
+  
   let cheeseVisible = false;
   /** @type {{xPx:number, yPx:number} | null} */
   let cheesePos = null;
@@ -142,6 +155,7 @@
   const MOUSE_SIZE = 32;
   const RAT_SIZE = 32;
   const LIZARD_SIZE = 32;
+  const BEE_SIZE = 32;
   const CHEESE_SIZE = 52;
   const CHEESE_LIFE_SIZE = 40;
   const CAT_SIZE = 56;
@@ -168,16 +182,19 @@
   const cheeseAudio = new Audio(CHEESE_SOUND_SRC);
   const recordAudio = new Audio(RECORD_SOUND_SRC);
   const lizardAudio = new Audio(LIZARD_SOUND_SRC);
+  const beeAudio = new Audio(BEE_SOUND_SRC);
   hitAudio.preload = 'auto';
   missAudio.preload = 'auto';
   cheeseAudio.preload = 'auto';
   recordAudio.preload = 'auto';
   lizardAudio.preload = 'auto';
+  beeAudio.preload = 'auto';
   hitAudio.volume = 0.7;
   missAudio.volume = 0.6;
   cheeseAudio.volume = 0.7;
   recordAudio.volume = 0.7;
   lizardAudio.volume = 0.7;
+  beeAudio.volume = 0.7;
 
   function ensureAudioCtx() {
     if (audioCtx) return audioCtx;
@@ -204,16 +221,19 @@
       const prevVolCheese = cheeseAudio.volume;
       const prevVolRecord = recordAudio.volume;
       const prevVolLizard = lizardAudio.volume;
+      const prevVolBee = beeAudio.volume;
       hitAudio.volume = 0;
       missAudio.volume = 0;
       cheeseAudio.volume = 0;
       recordAudio.volume = 0;
       lizardAudio.volume = 0;
+      beeAudio.volume = 0;
       hitAudio.currentTime = 0;
       missAudio.currentTime = 0;
       cheeseAudio.currentTime = 0;
       recordAudio.currentTime = 0;
       lizardAudio.currentTime = 0;
+      beeAudio.currentTime = 0;
       const p1 = hitAudio.play();
       if (p1 && typeof p1.then === 'function') {
         p1.then(() => hitAudio.pause()).catch(() => {});
@@ -244,11 +264,18 @@
       } else {
         lizardAudio.pause();
       }
+      const p6 = beeAudio.play();
+      if (p6 && typeof p6.then === 'function') {
+        p6.then(() => beeAudio.pause()).catch(() => {});
+      } else {
+        beeAudio.pause();
+      }
       hitAudio.volume = prevVolHit;
       missAudio.volume = prevVolMiss;
       cheeseAudio.volume = prevVolCheese;
       recordAudio.volume = prevVolRecord;
       lizardAudio.volume = prevVolLizard;
+      beeAudio.volume = prevVolBee;
     } catch {
       // ignore
     }
@@ -318,6 +345,12 @@
     if (!soundEnabled) return;
     const ok = tryPlayAudio(lizardAudio);
     if (!ok) playTone({ freqHz: 440, durationMs: 120, type: 'square', gain: 0.04 });
+  }
+
+  function playBeeSound() {
+    if (!soundEnabled) return;
+    const ok = tryPlayAudio(beeAudio);
+    if (!ok) playTone({ freqHz: 500, durationMs: 100, type: 'sawtooth', gain: 0.04 });
   }
 
   function clamp(n, min, max) {
@@ -759,6 +792,57 @@
       ctx.restore();
     }
 
+    // Draw bee if visible
+    if (beeVisible && beePos) {
+      // Interpolate position if escaping
+      let drawX = beePos.xPx;
+      let drawY = beePos.yPx;
+      let angle = 0;
+
+      if (beeEscaping && beeTargetPos && window.beeControlPoints) {
+        const now = Date.now();
+        const elapsed = now - beeEscapeStartTime;
+        const t = Math.min(1, elapsed / beeEscapeDuration);
+
+        // Generalized Bezier curve with variable control points
+        const points = [beePos, ...window.beeControlPoints, beeTargetPos];
+
+        function bezierPoint(pts, t) {
+          if (pts.length === 1) return pts[0];
+          const newPts = [];
+          for (let i = 0; i < pts.length - 1; i++) {
+            newPts.push({
+              xPx: (1 - t) * pts[i].xPx + t * pts[i + 1].xPx,
+              yPx: (1 - t) * pts[i].yPx + t * pts[i + 1].yPx
+            });
+          }
+          return bezierPoint(newPts, t);
+        }
+
+        const pos = bezierPoint(points, t);
+        drawX = pos.xPx;
+        drawY = pos.yPx;
+
+        // Calculate tangent for rotation
+        const dt = 0.01;
+        const pos1 = bezierPoint(points, Math.max(0, t - dt));
+        const pos2 = bezierPoint(points, Math.min(1, t + dt));
+        const dx = pos2.xPx - pos1.xPx;
+        const dy = pos2.yPx - pos1.yPx;
+
+        angle = Math.atan2(dy, dx) - Math.PI / 2;
+      }
+
+      // Draw emoji with rotation
+      ctx.save();
+      ctx.translate(drawX, drawY);
+      ctx.rotate(angle);
+      ctx.font = `${BEE_SIZE}px Arial, "Apple Color Emoji", "Segoe UI Emoji"`;
+      ctx.fillStyle = '#000';
+      ctx.fillText(BEE_EMOJI, 0, 0);
+      ctx.restore();
+    }
+
     // Draw cheese if visible
     if (cheeseVisible && cheesePos) {
       try {
@@ -1039,6 +1123,16 @@
     }
   }
 
+  function setBeeVisible(isVisible) {
+    beeVisible = isVisible;
+    if (!isVisible) {
+      beePos = null;
+      beeEscaping = false;
+      beeTargetPos = null;
+      currentBeeHitbox = HALF_HITBOX;
+    }
+  }
+
   function setCheeseVisible(isVisible) {
     cheeseVisible = isVisible;
     if (!isVisible) cheesePos = null;
@@ -1104,6 +1198,7 @@
     setMouseVisible(false);
     setRatVisible(false);
     setLizardVisible(false);
+    setBeeVisible(false);
     setCheeseVisible(false);
     status = 'paused';
     updateHud();
@@ -1131,6 +1226,7 @@
     setMouseVisible(false);
     setRatVisible(false);
     setLizardVisible(false);
+    setBeeVisible(false);
     setCheeseVisible(false);
     status = 'paused';
     if ($pauseBtn) $pauseBtn.style.display = 'none';
@@ -1209,21 +1305,38 @@
       // Count actual alive cheeses
       const aliveCheesesCount = cheeseLifePositions.filter(c => c.alive).length;
 
-      // Randomly decide to spawn cheese, rat, lizard, or mouse
+      // Randomly decide to spawn cheese, mouse, rat, lizard, or bee
       const rand = Math.random();
       
       // Only spawn cheese if player doesn't have all lives (15% chance)
       if (aliveCheesesCount < MAX_LIVES && rand < CHEESE_SPAWN_CHANCE) {
         showCheese();
-      } else if (rand < CHEESE_SPAWN_CHANCE + RAT_SPAWN_CHANCE) {
-        // Rat spawn (15% chance)
-        showRat();
-      } else if (rand < CHEESE_SPAWN_CHANCE + RAT_SPAWN_CHANCE + LIZARD_SPAWN_CHANCE) {
-        // Lizard spawn (10% chance)
-        showLizard();
       } else {
-        // Mouse spawn (remaining probability)
-        showMouse();
+        // When cheese doesn't spawn, use remaining probability for animals
+        // Normalize random value for animal spawn (since cheese takes 15%)
+        const animalRand = aliveCheesesCount >= MAX_LIVES 
+          ? rand  // If all lives, use full range
+          : (rand - CHEESE_SPAWN_CHANCE) / (1 - CHEESE_SPAWN_CHANCE); // Otherwise normalize
+        
+        // Calculate cumulative probabilities for animals (60% + 12% + 8% + 5% = 85%)
+        const totalAnimalChance = MOUSE_SPAWN_CHANCE + RAT_SPAWN_CHANCE + LIZARD_SPAWN_CHANCE + BEE_SPAWN_CHANCE;
+        const mouseThreshold = MOUSE_SPAWN_CHANCE / totalAnimalChance;
+        const ratThreshold = (MOUSE_SPAWN_CHANCE + RAT_SPAWN_CHANCE) / totalAnimalChance;
+        const lizardThreshold = (MOUSE_SPAWN_CHANCE + RAT_SPAWN_CHANCE + LIZARD_SPAWN_CHANCE) / totalAnimalChance;
+        
+        if (animalRand < mouseThreshold) {
+          // Mouse spawn (60% of total, ~70.6% of animals)
+          showMouse();
+        } else if (animalRand < ratThreshold) {
+          // Rat spawn (12% of total, ~14.1% of animals)
+          showRat();
+        } else if (animalRand < lizardThreshold) {
+          // Lizard spawn (8% of total, ~9.4% of animals)
+          showLizard();
+        } else {
+          // Bee spawn (5% of total, ~5.9% of animals)
+          showBee();
+        }
       }
     }, waitMs);
   }
@@ -1773,6 +1886,115 @@
     }, animationDuration);
   }
 
+  function showBee() {
+    if (status !== 'running') return;
+    if (!isOrientationAllowed()) return;
+
+    const pos = pickRandomMousePosition();
+    if (!pos) {
+      console.log('Failed to pick bee position');
+      scheduleNextMouse();
+      return;
+    }
+
+    console.log('Spawning bee at', pos);
+    beePos = pos;
+    setBeeVisible(true);
+
+    // Start escaping immediately!
+    animateBeeEscape();
+  }
+
+  function animateBeeEscape() {
+    if (!beeVisible || !beePos) return;
+    if (cheeseLifePositions.length === 0) return; // No cheese to target
+
+    beeEscaping = true;
+
+    // Pick a random alive cheese to target (but won't eat it)
+    const aliveCheeses = cheeseLifePositions
+      .map((cheese, index) => ({ cheese, index }))
+      .filter(item => item.cheese.alive);
+
+    if (aliveCheeses.length === 0) return; // No alive cheese
+
+    const randomAlive = aliveCheeses[Math.floor(Math.random() * aliveCheeses.length)];
+    const targetCheese = randomAlive.cheese;
+
+    // Calculate difficulty-adjusted animation duration (same speed as mouse)
+    let animationDuration;
+    
+    if (levelMode === 'fixed') {
+      // Fixed mode: duration based on current level
+      animationDuration = getMouseLifespanMs(currentLevel);
+    } else {
+      // Fibonacci mode: duration based on survival time (old logic)
+      const survivalSeconds = Math.floor((Date.now() - gameStartMs + survivalTimeMs) / 1000);
+      const difficultyFactor = Math.max(0.3, 1 - survivalSeconds / 120);
+      animationDuration = Math.floor(1500 * difficultyFactor);
+    }
+
+    // Minimal hitbox increase
+    const speedRatio = 1500 / animationDuration;
+    const hitboxMultiplier = Math.pow(speedRatio, 0.3);
+    currentBeeHitbox = HALF_HITBOX * hitboxMultiplier;
+
+    const canvasRect = $canvas.getBoundingClientRect();
+
+    // Target: towards the cheese, then below canvas (but doesn't eat cheese)
+    const cheeseX = targetCheese.xPx;
+    const cheeseY = targetCheese.yPx;
+    const finalY = canvasRect.height + 100;
+    const targetX = cheeseX;
+    const targetY = finalY;
+
+    // Random path complexity: 2-5 control points
+    const numControlPoints = Math.floor(Math.random() * 4) + 2;
+    console.log(`Creating bee path with ${numControlPoints} control points`);
+
+    // Generate control points with random offsets
+    const controlPoints = [];
+    for (let i = 0; i < numControlPoints; i++) {
+      const ratio = (i + 1) / (numControlPoints + 1);
+      const offsetScale = 0.3 - (i * 0.05);
+      const offsetX = (Math.random() - 0.5) * canvasRect.width * offsetScale;
+      const offsetY = (Math.random() - 0.5) * canvasRect.height * (offsetScale * 0.5);
+
+      controlPoints.push({
+        xPx: beePos.xPx + (cheeseX - beePos.xPx) * ratio + offsetX,
+        yPx: beePos.yPx + (cheeseY - beePos.yPx) * ratio + offsetY
+      });
+    }
+
+    // Adjust last control point to ensure curve goes through cheese area
+    const lastIdx = controlPoints.length - 1;
+    controlPoints[lastIdx] = {
+      xPx: cheeseX + (Math.random() - 0.5) * 30,
+      yPx: cheeseY + (Math.random() - 0.5) * 30
+    };
+
+    // Store control points
+    window.beeControlPoints = controlPoints;
+
+    // Store animation params for render loop
+    beeTargetPos = { xPx: targetX, yPx: targetY };
+    beeEscapeStartTime = Date.now();
+    beeEscapeDuration = animationDuration;
+
+    // After animation completes, bee disappears (doesn't steal cheese)
+    setTimeout(() => {
+      if (status !== 'running' || !beeEscaping) return;
+
+      beeEscaping = false;
+      setBeeVisible(false);
+
+      // Schedule next spawn
+      if (status === 'running') {
+        scheduleNextMouse();
+      }
+    }, animationDuration);
+  }
+
   function spawnPuffEffect(xPx, yPx) {
     effects.push({ type: 'puff', xPx, yPx, startMs: Date.now(), durationMs: 320 });
   }
@@ -1861,6 +2083,7 @@
     setMouseVisible(false);
     setRatVisible(false);
     setLizardVisible(false);
+    setBeeVisible(false);
     setCheeseVisible(false);
 
     setOverlay($startOverlay, false);
@@ -1883,6 +2106,7 @@
     setMouseVisible(false);
     setRatVisible(false);
     setLizardVisible(false);
+    setBeeVisible(false);
     setCheeseVisible(false);
 
     status = 'ended';
@@ -1931,6 +2155,7 @@
     setMouseVisible(false);
     setRatVisible(false);
     setLizardVisible(false);
+    setBeeVisible(false);
     setCheeseVisible(false);
     hideCat();
 
@@ -2149,6 +2374,53 @@
       }
     }
 
+    // Check if caught escaping bee (use bezier curve interpolated position)
+    if (beeEscaping && beeVisible) {
+      let currentBeeX = beePos.xPx;
+      let currentBeeY = beePos.yPx;
+
+      if (beeTargetPos && window.beeControlPoints) {
+        const now = Date.now();
+        const elapsed = now - beeEscapeStartTime;
+        const t = Math.min(1, elapsed / beeEscapeDuration);
+
+        // Generalized Bezier curve (matches render loop)
+        const points = [beePos, ...window.beeControlPoints, beeTargetPos];
+
+        function bezierPoint(pts, t) {
+          if (pts.length === 1) return pts[0];
+          const newPts = [];
+          for (let i = 0; i < pts.length - 1; i++) {
+            newPts.push({
+              xPx: (1 - t) * pts[i].xPx + t * pts[i + 1].xPx,
+              yPx: (1 - t) * pts[i].yPx + t * pts[i + 1].yPx
+            });
+          }
+          return bezierPoint(newPts, t);
+        }
+
+        const pos = bezierPoint(points, t);
+        currentBeeX = pos.xPx;
+        currentBeeY = pos.yPx;
+      }
+
+      if (pointInHitbox(xPx, yPx, currentBeeX, currentBeeY, currentBeeHitbox)) {
+        score -= 3; // Bee gives -3 points (penalty)
+        playBeeSound();
+        // Hit effects: 💥 + floating -3 at bee position.
+        spawnPuffEffect(currentBeeX, currentBeeY);
+        spawnPenaltyEffect(currentBeeX, currentBeeY - 36, '-3');
+        updateHud();
+
+        // Caught the escaping bee!
+        beeEscaping = false;
+        setBeeVisible(false);
+        scheduleNextMouse();
+        ev.preventDefault?.();
+        return;
+      }
+    }
+
     // Check if caught cheese (restore life)
     if (pointInCheeseHitbox(xPx, yPx)) {
       // Count actual alive cheeses
@@ -2224,11 +2496,12 @@
       setupCanvas(); // Resize canvas
       updateOrientationOverlay();
 
-      // При ресайзе безопасно скрыть мышь, крысу, ящерицу и сыр и продолжить цикл.
+      // При ресайзе безопасно скрыть мышь, крысу, ящерицу, пчелу и сыр и продолжить цикл.
       if (status === 'running') {
         setMouseVisible(false);
         setRatVisible(false);
         setLizardVisible(false);
+        setBeeVisible(false);
         setCheeseVisible(false);
         clearTimer(cheeseHideTimerId);
         cheeseHideTimerId = null;
@@ -2269,6 +2542,7 @@
             setMouseVisible(false);
             setRatVisible(false);
             setLizardVisible(false);
+            setBeeVisible(false);
             setCheeseVisible(false);
             status = 'paused';
             updateHud();
