@@ -1504,17 +1504,23 @@
     const targetCheese = randomAlive.cheese;
 
     // Calculate difficulty-adjusted animation duration
+    // IMPORTANT: Capture currentLevel at spawn time to prevent it from changing during animation
+    const spawnLevel = currentLevel; // Capture level at spawn time
+    
     let animationDuration;
     
     if (levelMode === 'fixed') {
-      // Fixed mode: duration based on current level
-      animationDuration = getMouseLifespanMs(currentLevel);
+      // Fixed mode: duration based on level at spawn time
+      animationDuration = getMouseLifespanMs(spawnLevel);
     } else {
       // Fibonacci mode: duration based on survival time (old logic)
       const survivalSeconds = Math.floor((Date.now() - gameStartMs + survivalTimeMs) / 1000);
       const difficultyFactor = Math.max(0.3, 1 - survivalSeconds / 120); // Gets harder over 2 minutes
       animationDuration = Math.floor(2500 * difficultyFactor); // 2500ms down to 750ms
     }
+    
+    // Ensure minimum duration of at least 500ms to prevent too-fast animals
+    animationDuration = Math.max(500, animationDuration);
 
     // Minimal hitbox increase for faster mice
     const speedRatio = 2500 / animationDuration;
@@ -1714,11 +1720,14 @@
     const targetCheese = randomAlive.cheese;
 
     // Calculate difficulty-adjusted animation duration (1.1x faster than mouse)
+    // IMPORTANT: Capture currentLevel at spawn time to prevent it from changing during animation
+    const spawnLevel = currentLevel; // Capture level at spawn time
+    
     let baseAnimationDuration;
     
     if (levelMode === 'fixed') {
-      // Fixed mode: duration based on current level
-      baseAnimationDuration = getMouseLifespanMs(currentLevel);
+      // Fixed mode: duration based on level at spawn time
+      baseAnimationDuration = getMouseLifespanMs(spawnLevel);
     } else {
       // Fibonacci mode: duration based on survival time (old logic)
       const survivalSeconds = Math.floor((Date.now() - gameStartMs + survivalTimeMs) / 1000);
@@ -1726,7 +1735,10 @@
       baseAnimationDuration = Math.floor(2500 * difficultyFactor);
     }
     
-    const animationDuration = Math.floor(baseAnimationDuration / 1.1); // 1.1x faster
+    let animationDuration = Math.floor(baseAnimationDuration / 1.1); // 1.1x faster
+    
+    // Ensure minimum duration of at least 500ms to prevent too-fast animals
+    animationDuration = Math.max(500, animationDuration);
 
     // Minimal hitbox increase for faster rats
     const speedRatio = 2500 / animationDuration;
@@ -1913,17 +1925,23 @@
     const targetCheese = randomAlive.cheese;
 
     // Calculate difficulty-adjusted animation duration (same speed as mouse)
+    // IMPORTANT: Capture currentLevel at spawn time to prevent it from changing during animation
+    const spawnLevel = currentLevel; // Capture level at spawn time
+    
     let animationDuration;
     
     if (levelMode === 'fixed') {
-      // Fixed mode: duration based on current level
-      animationDuration = getMouseLifespanMs(currentLevel);
+      // Fixed mode: duration based on level at spawn time
+      animationDuration = getMouseLifespanMs(spawnLevel);
     } else {
       // Fibonacci mode: duration based on survival time (old logic)
       const survivalSeconds = Math.floor((Date.now() - gameStartMs + survivalTimeMs) / 1000);
       const difficultyFactor = Math.max(0.3, 1 - survivalSeconds / 120);
       animationDuration = Math.floor(2500 * difficultyFactor);
     }
+    
+    // Ensure minimum duration of at least 500ms to prevent too-fast animals
+    animationDuration = Math.max(500, animationDuration);
 
     // Minimal hitbox increase
     const speedRatio = 2500 / animationDuration;
@@ -2022,17 +2040,23 @@
     const targetCheese = randomAlive.cheese;
 
     // Calculate difficulty-adjusted animation duration (same speed as mouse)
+    // IMPORTANT: Capture currentLevel at spawn time to prevent it from changing during animation
+    const spawnLevel = currentLevel; // Capture level at spawn time
+    
     let animationDuration;
     
     if (levelMode === 'fixed') {
-      // Fixed mode: duration based on current level
-      animationDuration = getMouseLifespanMs(currentLevel);
+      // Fixed mode: duration based on level at spawn time
+      animationDuration = getMouseLifespanMs(spawnLevel);
     } else {
       // Fibonacci mode: duration based on survival time (old logic)
       const survivalSeconds = Math.floor((Date.now() - gameStartMs + survivalTimeMs) / 1000);
       const difficultyFactor = Math.max(0.3, 1 - survivalSeconds / 120);
       animationDuration = Math.floor(2500 * difficultyFactor);
     }
+    
+    // Ensure minimum duration of at least 500ms to prevent too-fast animals
+    animationDuration = Math.max(500, animationDuration);
 
     // Minimal hitbox increase
     const speedRatio = 2500 / animationDuration;
