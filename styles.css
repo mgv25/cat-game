@@ -34,8 +34,9 @@ body {
   display: grid;
   grid-template-columns: 1fr 1fr 1fr;
   grid-template-rows: 1fr 1fr;
-  gap: 8px;
-  padding: 8px 10px;
+  gap: 7px;
+  /* Slightly tighter vertically; a bit more space at bottom to match top */
+  padding: 7px 10px 9px;
   background: var(--hud-bg);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
@@ -46,7 +47,7 @@ body {
   border: 1px solid rgba(255, 255, 255, 0.16);
   background: rgba(255, 255, 255, 0.08);
   border-radius: 12px;
-  padding: 8px 10px;
+  padding: 7px 10px;
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -472,7 +473,7 @@ body {
 
   #hud {
     gap: 6px;
-    padding: 7px 8px;
+    padding: 6px 8px 8px;
   }
 
   .hudCard {
