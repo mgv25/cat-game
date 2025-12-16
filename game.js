@@ -536,6 +536,11 @@
   function initSpeedDecreaseInput() {
     if (!$speedDecreaseInput) return;
     
+    // Ensure speedDecreasePercent has a valid value (should be set by loadSpeedDecrease)
+    if (speedDecreasePercent === undefined || speedDecreasePercent === null) {
+      speedDecreasePercent = 5; // Default: 5%
+    }
+    
     // Set initial value from loaded settings
     $speedDecreaseInput.value = String(speedDecreasePercent);
     
@@ -1047,14 +1052,23 @@
   function loadSpeedDecrease() {
     try {
       const raw = window.localStorage.getItem(SPEED_DECREASE_KEY);
+      if (raw === null || raw === '' || raw === undefined) {
+        // No value in localStorage, use default
+        speedDecreasePercent = 5; // Default: 5%
+        // Save default value to localStorage
+        saveSpeedDecrease(5);
+        return;
+      }
       const n = Number(raw);
       if (Number.isFinite(n) && n >= -99 && n <= 99) {
         speedDecreasePercent = Math.floor(n);
       } else {
         speedDecreasePercent = 5; // Default: 5%
+        saveSpeedDecrease(5);
       }
     } catch {
       speedDecreasePercent = 5; // Default: 5%
+      saveSpeedDecrease(5);
     }
   }
 
