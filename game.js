@@ -1491,8 +1491,8 @@
     if (status === 'running') {
       survivalSeconds = Math.floor((Date.now() - gameStartMs + survivalTimeMs) / 1000);
 
-      // Check if time record was beaten (skip if first game)
-      if (!recordTimeShown && survivalSeconds > bestTimeAtRoundStart && bestTimeAtRoundStart > 0) {
+      // Check if time record was beaten (including first game / previous record = 0)
+      if (!recordTimeShown && survivalSeconds > bestTimeAtRoundStart) {
         recordTimeShown = true;
         timeRecordBeaten = true;
         playRecordSound();
@@ -1502,8 +1502,8 @@
       }
       const newLevel = calculateLevel(survivalSeconds);
 
-      // Check if level record was beaten (only when level actually increases, skip if first game)
-      if (newLevel !== currentLevel && !recordLevelShown && newLevel > savedLevelAtRoundStart && savedLevelAtRoundStart > 0) {
+      // Check if level record was beaten (including first game / previous record = 0)
+      if (newLevel !== currentLevel && !recordLevelShown && newLevel > savedLevelAtRoundStart) {
         recordLevelShown = true;
         levelRecordBeaten = true;
         playRecordSound();
@@ -2851,8 +2851,8 @@
         // Hit effects (match old UI): 💥 + floating +1 at mouse position.
         spawnPuffEffect(currentMouseX, currentMouseY);
         spawnScoreEffect(currentMouseX, currentMouseY - 36, '+1');
-        // Check if score record was beaten (skip if this is the first game)
-        if (!recordScoreShown && score > bestScoreAtRoundStart && bestScoreAtRoundStart > 0) {
+        // Check if score record was beaten (including first game / previous record = 0)
+        if (!recordScoreShown && score > bestScoreAtRoundStart) {
           recordScoreShown = true;
           scoreRecordBeaten = true;
           playRecordSound();
@@ -2861,8 +2861,8 @@
           if ($scoreCard) $scoreCard.classList.add('highlightedScore');
         }
 
-        // Total caught record (any animal counts)
-        if (!recordTotalCaughtShown && totalCaught > bestTotalCaughtAtRoundStart && bestTotalCaughtAtRoundStart > 0) {
+        // Total caught record (any animal counts, including first game / previous record = 0)
+        if (!recordTotalCaughtShown && totalCaught > bestTotalCaughtAtRoundStart) {
           recordTotalCaughtShown = true;
           totalCaughtRecordBeaten = true;
           playRecordSound();
@@ -2870,8 +2870,8 @@
           if ($totalCaughtCard) $totalCaughtCard.classList.add('highlightedCaught');
         }
 
-        // Catch streak record (mouse/rat only)
-        if (!recordCatchStreakShown && catchStreak > bestCatchStreakAtRoundStart && bestCatchStreakAtRoundStart > 0) {
+        // Catch streak record (mouse/rat only, including first game / previous record = 0)
+        if (!recordCatchStreakShown && catchStreak > bestCatchStreakAtRoundStart) {
           recordCatchStreakShown = true;
           catchStreakRecordBeaten = true;
           playRecordSound();
@@ -2929,8 +2929,8 @@
         // Hit effects: 💥 + floating +3 at rat position.
         spawnPuffEffect(currentRatX, currentRatY);
         spawnScoreEffect(currentRatX, currentRatY - 36, '+3');
-        // Check if score record was beaten (skip if this is the first game)
-        if (!recordScoreShown && score > bestScoreAtRoundStart && bestScoreAtRoundStart > 0) {
+        // Check if score record was beaten (including first game / previous record = 0)
+        if (!recordScoreShown && score > bestScoreAtRoundStart) {
           recordScoreShown = true;
           scoreRecordBeaten = true;
           playRecordSound();
@@ -2938,7 +2938,7 @@
           if ($scoreCard) $scoreCard.classList.add('highlightedScore');
         }
 
-        if (!recordTotalCaughtShown && totalCaught > bestTotalCaughtAtRoundStart && bestTotalCaughtAtRoundStart > 0) {
+        if (!recordTotalCaughtShown && totalCaught > bestTotalCaughtAtRoundStart) {
           recordTotalCaughtShown = true;
           totalCaughtRecordBeaten = true;
           playRecordSound();
@@ -2946,7 +2946,7 @@
           if ($totalCaughtCard) $totalCaughtCard.classList.add('highlightedCaught');
         }
 
-        if (!recordCatchStreakShown && catchStreak > bestCatchStreakAtRoundStart && bestCatchStreakAtRoundStart > 0) {
+        if (!recordCatchStreakShown && catchStreak > bestCatchStreakAtRoundStart) {
           recordCatchStreakShown = true;
           catchStreakRecordBeaten = true;
           playRecordSound();
@@ -3002,7 +3002,7 @@
         // Hit effects: 💥 + floating -1 at lizard position.
         spawnPuffEffect(currentLizardX, currentLizardY);
         spawnPenaltyEffect(currentLizardX, currentLizardY - 36, '-1');
-        if (!recordTotalCaughtShown && totalCaught > bestTotalCaughtAtRoundStart && bestTotalCaughtAtRoundStart > 0) {
+        if (!recordTotalCaughtShown && totalCaught > bestTotalCaughtAtRoundStart) {
           recordTotalCaughtShown = true;
           totalCaughtRecordBeaten = true;
           playRecordSound();
@@ -3057,7 +3057,7 @@
         // Hit effects: 💥 + floating -3 at bee position.
         spawnPuffEffect(currentBeeX, currentBeeY);
         spawnPenaltyEffect(currentBeeX, currentBeeY - 36, '-3');
-        if (!recordTotalCaughtShown && totalCaught > bestTotalCaughtAtRoundStart && bestTotalCaughtAtRoundStart > 0) {
+        if (!recordTotalCaughtShown && totalCaught > bestTotalCaughtAtRoundStart) {
           recordTotalCaughtShown = true;
           totalCaughtRecordBeaten = true;
           playRecordSound();
